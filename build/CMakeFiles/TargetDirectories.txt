@@ -1,3 +1,0 @@
-/home/robin/Dropbox/Programming/c/openephys2dat/build/CMakeFiles/rebuild_cache.dir
-/home/robin/Dropbox/Programming/c/openephys2dat/build/CMakeFiles/hdf2dat.dir
-/home/robin/Dropbox/Programming/c/openephys2dat/build/CMakeFiles/edit_cache.dir
