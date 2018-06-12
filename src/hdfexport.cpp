@@ -67,8 +67,6 @@ MyFrame::MyFrame(const wxString& title, int x, int y, int w, int h)
 	// export button
 	createButtonAndAddToSizer(m_panel, buttonSizer, wxString("Export"), (int)CtrlIDs::kExport);
 
-	// treeSizer->Add(buttonSizer);
-
     m_sizer->Add(treeSizer, wxSizerFlags().Expand());
     m_sizer->AddSpacer(10);
     // create the text panel at the bottom
@@ -96,20 +94,6 @@ MyFrame::~MyFrame()
 	delete wxLog::SetActiveTarget(NULL);
 }
 
-void MyFrame::OnSize(wxSizeEvent & event)
-{
-	if ( m_treeCtrl && m_textCtrl )
-		Resize();
-
-	event.Skip();
-}
-
-void MyFrame::Resize()
-{
-	// wxSize size = GetClientSize();
-	// m_treeCtrl->SetSize(0, 0, size.x, size.y *2/3);
-	// m_textCtrl->SetSize(0, 2*size.y/3, size.x, size.y/3);
-}
 
 void MyFrame::OnQuit(wxCommandEvent & WXUNUSED(event))
 {
@@ -123,7 +107,7 @@ void MyFrame::OnQuit(wxCommandEvent & WXUNUSED(event))
 void MyFrame::OnAbout(wxCommandEvent & WXUNUSED(event))
 {
 	wxMessageBox(wxT("HDF5 Export\n")
-                 wxT("(c) Robin Hayman 2017"),
+                 wxT("(c) Robin Hayman 2018"),
                  wxT("About export HDF5"),
                  wxOK | wxICON_INFORMATION, this);
 }
@@ -138,10 +122,9 @@ void MyFrame::OnOpen(wxCommandEvent & WXUNUSED(event))
 
     m_filename = openFileDialog.GetPath().ToStdString();
 
-    std::cout << "Reading from file: " << m_filename << std::endl;
+    m_textCtrl->AppendText(wxString("Reading from file: \n") + wxString(m_filename));
 
 	hdf_file = new H5::H5File(m_filename, H5F_ACC_RDONLY);
-	H5::Group group = hdf_file->openGroup("/");
 	std::map<std::string, std::string> hdfpaths = getPaths(m_filename);
 	m_treeCtrl->AddItemsToTree(hdfpaths);
 
@@ -153,7 +136,6 @@ void MyFrame::GetDataSetInfo(const std::string & pathToDataSet, const std::strin
 	if ( hdf_file ) {
 		if ( hdf_file->nameExists(pathToDataSet) ) {
 			H5::DataSet dataset = hdf_file->openDataSet(pathToDataSet);
-			hsize_t sz = dataset.getStorageSize();
 			H5T_class_t type_class = dataset.getTypeClass();
 			if ( type_class == H5T_INTEGER ) {
 				H5::IntType inttype = dataset.getIntType();
@@ -225,21 +207,20 @@ void MyFrame::GetDataSetInfo(const std::string & pathToDataSet, const std::strin
     			int inc = 0;
 				// Open the output file to write into
 				std::ofstream outfile(outputfname, std::ifstream::out);
-				int _end, _start;
-				_end = (int)end_sample;
-				_start = (int)start_sample;
-				int _range = _end-_start;
-				// TODO: Fix Dataspace out of range error when getting to the end of the file / end_sample
 				for (int iSample = start_sample; iSample < end_sample; iSample+=sample_block_inc) {
 					offset[0] = iSample;
 					if ( (iSample + sample_block_inc) > end_sample ) {
 						hsize_t small_sample_block_inc = end_sample - iSample;
 						hsize_t small_count[2];
-						small_count[0] = sample_block_inc;
+						small_count[0] = small_sample_block_inc;
 						small_count[1] = end_channel-start_channel;
-						int16_t small_data_chunk[sample_block_inc][end_channel-start_channel];
+						hsize_t small_dimsm[2];
+						small_dimsm[0] = small_sample_block_inc;
+						small_dimsm[1] = end_channel-start_channel;
+						H5::DataSpace small_memspace(2, small_dimsm, NULL);
+						int16_t small_data_chunk[small_sample_block_inc][end_channel-start_channel];
 						dataspace.selectHyperslab(H5S_SELECT_SET, small_count, offset, stride, block);
-						dataset.read(small_data_chunk, H5::PredType::NATIVE_INT16, memspace, dataspace);
+						dataset.read(small_data_chunk, H5::PredType::NATIVE_INT16, small_memspace, dataspace);
 						outfile.write(reinterpret_cast<char*>(&small_data_chunk), sizeof(small_data_chunk));
 					}
 					else {
@@ -250,7 +231,6 @@ void MyFrame::GetDataSetInfo(const std::string & pathToDataSet, const std::strin
 					prog.Update(inc);
 					++inc;
 				}
-				std::cout << "Data written to \n";
 				outfile.close();
 			}
 			if ( type_class == H5T_FLOAT ) {
@@ -455,8 +435,6 @@ void MyTreeCtrl::OnSelectionChanged(wxTreeEvent & evt) {
 	wxTreeItemId id = GetFocusedItem();
 	std::string focusedItemStr = GetItemText(id).ToStdString();
 	m_parent->UpdateControls(focusedItemStr);
-
-	
 }
 
 void MyTreeCtrl::OnGetInfo(wxTreeEvent & event)

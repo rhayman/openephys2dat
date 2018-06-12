@@ -19,8 +19,6 @@ class MyFrame;
 
 const std::string defaultDir{"/home/robin/Dropbox/Science/Recordings/OpenEphys"};
 
-const unsigned int SAMPLE_RATE = 30000;
-
 enum class CtrlIDs
 {
 	kTreeCtrl,
@@ -95,13 +93,11 @@ public:
 	void OnQuit(wxCommandEvent & event);
 	void OnAbout(wxCommandEvent & event);
 	void OnSaveSelected(wxCommandEvent & event) {};
-	void OnSize(wxSizeEvent & event);
 	void OnExport(wxCommandEvent &);
 	void UpdateControls(const std::string &);
 	void GetDataSetInfo(const std::string &, const std::string &);
 
 private:
-	void Resize();
 	void CreateTree(long style) {};
 	wxSpinCtrl * createSpinAndAddToSizer(wxWindow * parent, wxSizer * sizer, const wxString & label, wxWindowID id);
 	wxSpinCtrlDouble * createDoubleSpinAndAddToSizer(wxWindow * parent, wxSizer * sizer, const wxString & label, wxWindowID id);
