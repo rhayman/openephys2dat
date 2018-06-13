@@ -8,8 +8,11 @@
 #include <map>
 #include <fstream>
 #include <stdio.h>
+#include <wx/progdlg.h>
 
 const unsigned int SAMPLE_RATE = 30000;
+
+class wxProgressDialog;
 
 class NwbData
 {
@@ -42,9 +45,22 @@ public:
         hsize_t idx;
         H5Literate(fid, H5_INDEX_NAME, H5_ITER_NATIVE, &idx, l_op_func, (void*)&output);
         return output;
-    }
+    };
 
-    void ExportData(const std::string & pathToDataSet, const std::string & outputFname, const ExportParams & params, int & increment) {
+    void getDataSpaceDimensions(const std::string & pathToDataSet, int & nSamples, int & nChannels) {
+        if ( m_hdf_file ) {
+            if ( m_hdf_file->nameExists(pathToDataSet) ) {
+                H5::DataSet dataset = m_hdf_file->openDataSet(pathToDataSet);
+                H5::DataSpace dataspace = dataset.getSpace();
+                hsize_t dims_out[2];
+                int ndims = dataspace.getSimpleExtentDims(dims_out, NULL);
+                nSamples = dims_out[0];
+                nChannels = dims_out[1];
+            }
+        }
+    };
+
+    void ExportData(const std::string & pathToDataSet, const std::string & outputFname, const ExportParams & params, wxProgressDialog & prog) {
         if ( m_hdf_file ) {
             if ( m_hdf_file->nameExists(pathToDataSet) ) {
                 H5::DataSet dataset = m_hdf_file->openDataSet(pathToDataSet);
@@ -111,6 +127,7 @@ public:
                     count[0] = sample_block_inc;
                     count[1] = end_channel-start_channel;
                     H5::DataSpace memspace(2, dimsm, NULL);
+                    int inc = 0;
                     // Open the output file to write into
                     std::ofstream outfile(outputFname, std::ifstream::out);
                     for (int iSample = start_sample; iSample < end_sample; iSample+=sample_block_inc) {
@@ -134,6 +151,8 @@ public:
                             dataset.read(data_out, H5::PredType::NATIVE_INT16, memspace, dataspace);
                             outfile.write(reinterpret_cast<char*>(&data_out), sizeof(data_out));
                         }
+                        ++inc;
+                        prog.Update(inc);
                     }
                     outfile.close();
                 }

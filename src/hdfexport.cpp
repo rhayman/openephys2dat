@@ -97,9 +97,8 @@ MyFrame::~MyFrame()
 
 void MyFrame::OnQuit(wxCommandEvent & WXUNUSED(event))
 {
-	if ( hdf_file ) {
-		hdf_file->close();
-		delete hdf_file;
+	if ( m_nwb_data ) {
+		delete m_nwb_data;
 	}
 	Close(true);
 }
@@ -124,8 +123,8 @@ void MyFrame::OnOpen(wxCommandEvent & WXUNUSED(event))
 
     m_textCtrl->AppendText(wxString("Reading from file: \n") + wxString(m_filename));
 
-	hdf_file = new H5::H5File(m_filename, H5F_ACC_RDONLY);
-	std::map<std::string, std::string> hdfpaths = getPaths(m_filename);
+	m_nwb_data = new NwbData(m_filename);
+	std::map<std::string, std::string> hdfpaths = m_nwb_data->getPaths(m_filename);
 	m_treeCtrl->AddItemsToTree(hdfpaths);
 
 	wxLogTextCtrl * logWindow = new wxLogTextCtrl(m_textCtrl);
@@ -133,125 +132,15 @@ void MyFrame::OnOpen(wxCommandEvent & WXUNUSED(event))
 }
 
 void MyFrame::GetDataSetInfo(const std::string & pathToDataSet, const std::string & outputfname) {
-	if ( hdf_file ) {
-		if ( hdf_file->nameExists(pathToDataSet) ) {
-			H5::DataSet dataset = hdf_file->openDataSet(pathToDataSet);
-			H5T_class_t type_class = dataset.getTypeClass();
-			if ( type_class == H5T_INTEGER ) {
-				H5::IntType inttype = dataset.getIntType();
-				size_t precision = inttype.getPrecision();
-				H5::DataSpace dataspace = dataset.getSpace();
-				int rank = dataspace.getSimpleExtentNdims();
-				hsize_t dims_out[2];
-				int ndims = dataspace.getSimpleExtentDims(dims_out, NULL);
-				int nSamples = dims_out[0];
-				int nChannels = dims_out[1];
-				// Get the parameters specified in the controls
-				ExportParams params = getExportParams();
-				hsize_t start_sample = (hsize_t)params.m_start_time;
-				hsize_t end_sample = (hsize_t)params.m_end_time;
-				hsize_t start_channel = (hsize_t)params.m_start_channel;
-				hsize_t end_channel = (hsize_t)params.m_end_channel;
-				hsize_t sample_block_inc = 30000;
-
-				std::cout << std::endl << nChannels << " channels were recorded over " << nSamples/3e4 << " seconds (" << nSamples << " samples)" << std::endl;
-				/*
-				The buffer the data is read into - if sample_block_inc = 3e4 and
-				nChannels = 64 then this buffer is about 3Mb big
-				*/
-				int16_t data_out[sample_block_inc][end_channel-start_channel];
-				/*
-				dimsm:
-				an array that determines the dimensions used for the memory dataspace (see below)
-				*/
-				hsize_t dimsm[2];
-				dimsm[0] = sample_block_inc;
-				dimsm[1] = end_channel-start_channel;
-				/*
-				offset:
-				determines the starting position in the dataspace
-				offset[0] = sample, offset[1] = channel
-				*/
-				hsize_t offset[2];
-				offset[0] = start_sample;
-				offset[1] = start_channel;
-				/*
-				stride:
-				An array that allows you to sample elements along a dimension.
-				For example, a stride of one (or NULL) will select every element along a dimension,
-				a stride of two will select every other element,
-				and a stride of three will select an element after every two elements
-				*/
-				hsize_t stride[2];
-				stride[0] = 1;
-				stride[1] = 1;
-				/*
-				block:
-				An array that determines the size of the element block selected from a dataspace.
-				If the block size is one or NULL then the block size is a single element in that dimension.
-				*/
-				hsize_t block[2];
-				block[0] = 1;
-				block[1] = 1;
-				/*
-				count
-				An array that determines how many blocks to select from the dataspace in each dimension.
-				If the block size for a dimension is one then the count is the number of elements along that dimension.
-				*/
-				hsize_t count[2]; // count
-				count[0] = sample_block_inc;
-				count[1] = end_channel-start_channel;
-				H5::DataSpace memspace(2, dimsm, NULL);
-				// Progress dialog window
-				wxProgressDialog prog{wxString("Exporting data"), wxString("Exporting .dat file... "), static_cast<int>((end_sample-start_sample)/SAMPLE_RATE), this};
-    			int inc = 0;
-				// Open the output file to write into
-				std::ofstream outfile(outputfname, std::ifstream::out);
-				for (int iSample = start_sample; iSample < end_sample; iSample+=sample_block_inc) {
-					offset[0] = iSample;
-					if ( (iSample + sample_block_inc) > end_sample ) {
-						hsize_t small_sample_block_inc = end_sample - iSample;
-						hsize_t small_count[2];
-						small_count[0] = small_sample_block_inc;
-						small_count[1] = end_channel-start_channel;
-						hsize_t small_dimsm[2];
-						small_dimsm[0] = small_sample_block_inc;
-						small_dimsm[1] = end_channel-start_channel;
-						H5::DataSpace small_memspace(2, small_dimsm, NULL);
-						int16_t small_data_chunk[small_sample_block_inc][end_channel-start_channel];
-						dataspace.selectHyperslab(H5S_SELECT_SET, small_count, offset, stride, block);
-						dataset.read(small_data_chunk, H5::PredType::NATIVE_INT16, small_memspace, dataspace);
-						outfile.write(reinterpret_cast<char*>(&small_data_chunk), sizeof(small_data_chunk));
-					}
-					else {
-						dataspace.selectHyperslab(H5S_SELECT_SET, count, offset, stride, block);
-						dataset.read(data_out, H5::PredType::NATIVE_INT16, memspace, dataspace);
-						outfile.write(reinterpret_cast<char*>(&data_out), sizeof(data_out));
-					}
-					prog.Update(inc);
-					++inc;
-				}
-				outfile.close();
-			}
-			if ( type_class == H5T_FLOAT ) {
-				std::cout << "H5T_FLOAT" << std::endl;
-				H5::FloatType floattype = dataset.getFloatType();
-				size_t precision = floattype.getPrecision();
-				std::cout << "precision " << precision << std::endl;
-				H5::DataSpace dataspace = dataset.getSpace();
-				int rank = dataspace.getSimpleExtentNdims();
-				hsize_t dims_out[rank];
-				int ndims = dataspace.getSimpleExtentDims(dims_out, NULL);
-				std::cout << "rank " << rank << " dimensions " << (unsigned long)(dims_out[0]) << std::endl;
-			}
-			if (  type_class == H5T_STRING ) {
-				std::cout << "H5T_STRING" << std::endl;
-			}
-			if ( type_class == H5T_BITFIELD ) {
-				std::cout << "H5T_BITFIELD" << std::endl;
-			}
-		}
-	}
+	if ( m_nwb_data ) {
+		ExportParams params = getExportParams();
+		int nSamples, nChannels;
+		m_nwb_data->getDataSpaceDimensions(pathToDataSet, nSamples, nChannels);
+		m_textCtrl->AppendText(wxString(std::to_string(nChannels)) + wxString(" channels were recorded over ") +
+			wxString(std::to_string(nSamples/3e4)) + wxString(" seconds (") + wxString(std::to_string(nSamples)) + wxString(" samples)"));
+		wxProgressDialog prog{wxString("Exporting data"), wxString("Exporting .dat file... "), static_cast<int>((params.m_end_time-params.m_start_time)/SAMPLE_RATE), this};
+		m_nwb_data->ExportData(pathToDataSet, outputfname, params, prog);
+    }
 }
 
 ExportParams MyFrame::getExportParams() {
@@ -396,24 +285,18 @@ void MyFrame::OnButtonEvent(wxCommandEvent & evt) {
 }
 
 void MyFrame::UpdateControls(const std::string & pathToDataSet) {
-	if ( hdf_file ) {
-		if ( hdf_file->nameExists(pathToDataSet) ) {
-			H5::DataSet dataset = hdf_file->openDataSet(pathToDataSet);
-			H5::DataSpace dataspace = dataset.getSpace();
-			hsize_t dims_out[2];
-			int ndims = dataspace.getSimpleExtentDims(dims_out, NULL);
-			int nSamples = dims_out[0];
-			int nChannels = dims_out[1];
-			ExportParams params;
-			params.m_start_channel = 0;
-			params.m_end_channel = nChannels;
-			params.m_start_time = 0.0;
-			if ( pathToDataSet.find("processor") != std::string::npos )
-				params.m_end_time = nSamples;
-			else
-				params.m_end_time = nSamples;
-			setExportParams(params);
-		}
+	if ( m_nwb_data ) {
+		int nSamples, nChannels;
+		m_nwb_data->getDataSpaceDimensions(pathToDataSet, nSamples, nChannels);
+		ExportParams params;
+		params.m_start_channel = 0;
+		params.m_end_channel = nChannels;
+		params.m_start_time = 0.0;
+		if ( pathToDataSet.find("processor") != std::string::npos )
+			params.m_end_time = nSamples;
+		else
+			params.m_end_time = nSamples;
+		setExportParams(params);
 	}
 }
 

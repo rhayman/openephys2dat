@@ -16,6 +16,7 @@
 #include <wx/spinctrl.h>
 
 class MyFrame;
+class NwbData;
 
 const std::string defaultDir{"/home/robin/Dropbox/Science/Recordings/OpenEphys"};
 
@@ -111,7 +112,7 @@ private:
 	wxPanel * m_panel;
 	MyTreeCtrl * m_treeCtrl;
 	wxTextCtrl * m_textCtrl;
-	H5::H5File * hdf_file;
+	NwbData * m_nwb_data;
 	std::string m_filename;
 	double m_start_time;
 	double m_end_time;
