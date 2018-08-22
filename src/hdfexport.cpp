@@ -138,7 +138,7 @@ void MyFrame::GetDataSetInfo(const std::string & pathToDataSet, const std::strin
 		m_nwb_data->getDataSpaceDimensions(pathToDataSet, nSamples, nChannels);
 		m_textCtrl->AppendText(wxString(std::to_string(nChannels)) + wxString(" channels were recorded over ") +
 			wxString(std::to_string(nSamples/3e4)) + wxString(" seconds (") + wxString(std::to_string(nSamples)) + wxString(" samples)"));
-		wxProgressDialog prog{wxString("Exporting data"), wxString("Exporting .dat file... "), static_cast<int>((params.m_end_time/SAMPLE_RATE-params.m_start_time/SAMPLE_RATE)), this};
+		wxProgressDialog prog{wxString("Exporting data"), wxString("Exporting .dat file... "), static_cast<int>((params.m_end_time-params.m_start_time)), this};
 		m_nwb_data->ExportData(pathToDataSet, outputfname, params, prog);
     }
 }
@@ -214,7 +214,11 @@ void MyFrame::OnExport(wxCommandEvent & evt) {
 	wxTreeItemId id = m_treeCtrl->GetFocusedItem();
 	std::string itemName = m_treeCtrl->GetItemText(id).ToStdString();
 
-	wxFileDialog saveFileDialog(this, ("Save .dat file"), defaultDir, "",
+    wxString longName = wxString(m_filename);
+    wxString suggestedName = longName.AfterLast('/');
+    suggestedName = suggestedName.BeforeLast('.');
+    suggestedName = suggestedName +  ".dat";
+	wxFileDialog saveFileDialog(this, ("Save .dat file"), defaultDir, suggestedName,
         "dat files(*.dat)|*.dat",
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (saveFileDialog.ShowModal() == wxID_CANCEL)
@@ -272,8 +276,12 @@ void MyFrame::OnButtonEvent(wxCommandEvent & evt) {
     if ( id == (int)CtrlIDs::kExport ) {
     	wxTreeItemId id = m_treeCtrl->GetFocusedItem();
 		std::string itemName = m_treeCtrl->GetItemText(id).ToStdString();
+        wxString longName = wxString(m_filename);
+        wxString suggestedName = longName.AfterLast('/');
+        suggestedName = suggestedName.BeforeLast('.');
+        suggestedName = suggestedName +  ".dat";
 		// Open the file dialog
-		wxFileDialog saveFileDialog(this, ("Save .dat file"), defaultDir, "",
+		wxFileDialog saveFileDialog(this, ("Save .dat file"), defaultDir, suggestedName,
         "dat files(*.dat)|*.dat",
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 	    if (saveFileDialog.ShowModal() == wxID_CANCEL)

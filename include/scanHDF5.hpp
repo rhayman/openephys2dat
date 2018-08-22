@@ -127,7 +127,7 @@ public:
                     count[0] = sample_block_inc;
                     count[1] = end_channel-start_channel;
                     H5::DataSpace memspace(2, dimsm, NULL);
-                    int inc = 0;
+                    // int inc = 0;
                     // Open the output file to write into
                     std::ofstream outfile(outputFname, std::ifstream::out);
                     for (int iSample = start_sample; iSample < end_sample; iSample+=sample_block_inc) {
@@ -151,8 +151,8 @@ public:
                             dataset.read(data_out, H5::PredType::NATIVE_INT16, memspace, dataspace);
                             outfile.write(reinterpret_cast<char*>(&data_out), sizeof(data_out));
                         }
-                        ++inc;
-                        prog.Update(inc);
+                        // ++inc;
+                        prog.Update(iSample);
                     }
                     outfile.close();
                 }
