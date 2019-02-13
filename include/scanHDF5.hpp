@@ -205,7 +205,8 @@ herr_t op_func (hid_t loc_id, const char *name, const H5O_info_t *info,
     std::map<std::string, std::string> * v = static_cast<std::map<std::string, std::string>*>(operator_data);
     if (name[0] == '.')         /* Root group */
         {}
-    else        switch (info->type) {
+    else
+        switch (info->type) {
             case H5O_TYPE_GROUP:
                 v->emplace(std::string(name), "Group");
                 break;
