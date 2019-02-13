@@ -19,6 +19,26 @@ Prerequisites include the following:
 * wxwidgets (tested with 3.1.0) - needs the gtk2 toolkit
 * the hdf5 libraries
 
+The main pain is the hdf5 libraries. The best way for me has been to download them from the hdfgroup
+website:
+
+> https://www.hdfgroup.org/downloads/hdf5/source-code/
+
+Get hold of the bzip or whatever and extract it, go into the resulting folder and do:
+
+```
+./configure --prefix=/usr/local/hdf5 --enable-cxx
+make
+sudo make install
+make check - optional
+```
+
+Then in the CMakeLists.txt file the line that reads:
+
+> set( HDF5_ROOT  /usr/local/hdf5 )
+
+Should mean that all the libraries, binaries etc should be the ones you need.
+
 Download or clone the repo or whatever and then at the top level do:
 
 ```
