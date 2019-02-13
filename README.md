@@ -24,7 +24,17 @@ website:
 
 > https://www.hdfgroup.org/downloads/hdf5/source-code/
 
-Get hold of the bzip or whatever and extract it, go into the resulting folder and do:
+or
+
+> https://support.hdfgroup.org/ftp/HDF5/current/src/
+
+Get hold of the bzip or whatever...
+
+```
+wget https://support.hdfgroup.org/ftp/HDF5/current/src/hdf5-1.10.4.tar.bz2
+```
+
+...extract it, go into the resulting folder and do:
 
 ```
 ./configure --prefix=/usr/local/hdf5 --enable-cxx
