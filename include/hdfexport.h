@@ -114,6 +114,7 @@ private:
 	wxTextCtrl * m_textCtrl;
 	NwbData * m_nwb_data;
 	std::string m_filename;
+	std::string m_pathname;
 	double m_start_time;
 	double m_end_time;
 	unsigned int m_start_channel;

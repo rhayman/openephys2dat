@@ -33,7 +33,7 @@ endif()
 
 # ---------- HDF5 -------------
 # where the HDF5 installation lives
-set( HDF5_ROOT  /usr/local/hdf5 )
+#set( HDF5_ROOT  /usr/local/hdf5 )
 set ( HDF5_USE_STATIC_LIBRARIES ON )
 find_package( HDF5 REQUIRED CXX )
 if ( HDF5_FOUND )

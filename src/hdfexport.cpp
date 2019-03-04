@@ -119,6 +119,7 @@ void MyFrame::OnOpen(wxCommandEvent & WXUNUSED(event))
     if (openFileDialog.ShowModal() == wxID_CANCEL)
         return;
 
+    m_pathname = openFileDialog.GetPath();
     m_filename = openFileDialog.GetPath().ToStdString();
 
     m_textCtrl->AppendText(wxString("Reading from file: \n") + wxString(m_filename));
@@ -218,7 +219,8 @@ void MyFrame::OnExport(wxCommandEvent & evt) {
     wxString suggestedName = longName.AfterLast('/');
     suggestedName = suggestedName.BeforeLast('.');
     suggestedName = suggestedName +  ".dat";
-	wxFileDialog saveFileDialog(this, ("Save .dat file"), defaultDir, suggestedName,
+    // m_pathname set in OnOpen()
+	wxFileDialog saveFileDialog(this, ("Save .dat file"), wxString(m_pathname), suggestedName,
         "dat files(*.dat)|*.dat",
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (saveFileDialog.ShowModal() == wxID_CANCEL)
