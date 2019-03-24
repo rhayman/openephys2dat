@@ -94,7 +94,7 @@ public:
 	void OnQuit(wxCommandEvent & event);
 	void OnAbout(wxCommandEvent & event);
 	void OnSaveSelected(wxCommandEvent & event) {};
-	void OnExport(wxCommandEvent &);
+	// void OnExport(wxCommandEvent &);
 	void UpdateControls(const std::string &);
 	void GetDataSetInfo(const std::string &, const std::string &);
 

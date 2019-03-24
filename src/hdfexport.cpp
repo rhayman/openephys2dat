@@ -119,7 +119,7 @@ void MyFrame::OnOpen(wxCommandEvent & WXUNUSED(event))
     if (openFileDialog.ShowModal() == wxID_CANCEL)
         return;
 
-    m_pathname = openFileDialog.GetPath();
+    m_pathname = openFileDialog.GetPath().BeforeLast('/').ToStdString();
     m_filename = openFileDialog.GetPath().ToStdString();
 
     m_textCtrl->AppendText(wxString("Reading from file: \n") + wxString(m_filename));
@@ -211,24 +211,25 @@ void MyFrame::setExportParams(const ExportParams & params) {
     }
 }
 
-void MyFrame::OnExport(wxCommandEvent & evt) {
-	wxTreeItemId id = m_treeCtrl->GetFocusedItem();
-	std::string itemName = m_treeCtrl->GetItemText(id).ToStdString();
+// void MyFrame::OnExport(wxCommandEvent & evt) {
+// 	wxTreeItemId id = m_treeCtrl->GetFocusedItem();
+// 	std::string itemName = m_treeCtrl->GetItemText(id).ToStdString();
 
-    wxString longName = wxString(m_filename);
-    wxString suggestedName = longName.AfterLast('/');
-    suggestedName = suggestedName.BeforeLast('.');
-    suggestedName = suggestedName +  ".dat";
-    // m_pathname set in OnOpen()
-	wxFileDialog saveFileDialog(this, ("Save .dat file"), wxString(m_pathname), suggestedName,
-        "dat files(*.dat)|*.dat",
-        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-    if (saveFileDialog.ShowModal() == wxID_CANCEL)
-        return;
+//     wxString longName = wxString(m_filename);
+//     wxString suggestedName = longName.AfterLast('/');
+//     suggestedName = suggestedName.BeforeLast('.');
+//     suggestedName = suggestedName +  ".dat";
+//     // m_pathname set in OnOpen()
+//     std::cout << "m_pathname " << m_pathname << std::endl;
+// 	wxFileDialog saveFileDialog(this, ("Save .dat file"), wxString(m_pathname), suggestedName,
+//         "dat files(*.dat)|*.dat",
+//         wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+//     if (saveFileDialog.ShowModal() == wxID_CANCEL)
+//         return;
 
-    std::string outputfname = saveFileDialog.GetPath().ToStdString();
-	GetDataSetInfo(itemName, outputfname);
-}
+//     std::string outputfname = saveFileDialog.GetPath().ToStdString();
+// 	GetDataSetInfo(itemName, outputfname);
+// }
 
 wxSpinCtrl * MyFrame::createSpinAndAddToSizer(wxWindow * parent, wxSizer * sizer, const wxString & label, wxWindowID id)
 {
@@ -283,7 +284,7 @@ void MyFrame::OnButtonEvent(wxCommandEvent & evt) {
         suggestedName = suggestedName.BeforeLast('.');
         suggestedName = suggestedName +  ".dat";
 		// Open the file dialog
-		wxFileDialog saveFileDialog(this, ("Save .dat file"), defaultDir, suggestedName,
+		wxFileDialog saveFileDialog(this, ("Save .dat file"), wxString(m_pathname), suggestedName,
         "dat files(*.dat)|*.dat",
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 	    if (saveFileDialog.ShowModal() == wxID_CANCEL)
