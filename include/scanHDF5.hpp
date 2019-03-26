@@ -95,7 +95,8 @@ public:
                     /*
                     offset:
                     determines the starting position in the dataspace
-                    offset[0] = sample, offset[1] = channel
+                    offset[0] = sample
+                    offset[1] = channel
                     */
                     hsize_t offset[2];
                     offset[0] = start_sample;

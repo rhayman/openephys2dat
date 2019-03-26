@@ -30,7 +30,8 @@ enum class CtrlIDs
 	kStartTime,
 	kEndTime,
 	kStartChannel,
-	kEndChannel
+	kEndChannel,
+	kSplitIntoTetrodes
 };
 
 class MyApp : public wxApp
@@ -82,6 +83,7 @@ struct ExportParams {
 	unsigned int m_end_channel;
 	unsigned int m_start_time;
 	unsigned int m_end_time;
+	bool m_split_into_tetrodes = false;
 };
 
 class MyFrame : public wxFrame
@@ -103,9 +105,11 @@ private:
 	wxSpinCtrl * createSpinAndAddToSizer(wxWindow * parent, wxSizer * sizer, const wxString & label, wxWindowID id);
 	wxSpinCtrlDouble * createDoubleSpinAndAddToSizer(wxWindow * parent, wxSizer * sizer, const wxString & label, wxWindowID id);
 	wxButton * createButtonAndAddToSizer(wxWindow * parent, wxSizer * sizer, const wxString & label, wxWindowID id);
+	wxCheckBox * createCheckBoxAndAddToSizer(wxWindow * parent, wxSizer *, const wxString & label, wxWindowID);
 	void OnSpinEvent(wxSpinEvent &);
 	void OnSpinDoubleEvent(wxSpinDoubleEvent &);
 	void OnButtonEvent(wxCommandEvent &);
+	void OnCheckEvent(wxCommandEvent &);
 	ExportParams getExportParams();
 	void setExportParams(const ExportParams &);
 	wxBoxSizer * m_sizer;
@@ -113,8 +117,8 @@ private:
 	MyTreeCtrl * m_treeCtrl;
 	wxTextCtrl * m_textCtrl;
 	NwbData * m_nwb_data;
-	std::string m_filename;
-	std::string m_pathname;
+	std::string m_filename = "";
+	std::string m_pathname = "";
 	double m_start_time;
 	double m_end_time;
 	unsigned int m_start_channel;

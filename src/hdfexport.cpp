@@ -66,6 +66,8 @@ MyFrame::MyFrame(const wxString& title, int x, int y, int w, int h)
 	buttonSizer->AddSpacer(10);
 	// export button
 	createButtonAndAddToSizer(m_panel, buttonSizer, wxString("Export"), (int)CtrlIDs::kExport);
+    buttonSizer->AddSpacer(10);
+    createCheckBoxAndAddToSizer(m_panel, buttonSizer, wxString("Split into tetrodes"), (int)CtrlIDs::kSplitIntoTetrodes);
 
     m_sizer->Add(treeSizer, wxSizerFlags().Expand());
     m_sizer->AddSpacer(10);
@@ -139,8 +141,8 @@ void MyFrame::GetDataSetInfo(const std::string & pathToDataSet, const std::strin
 		m_nwb_data->getDataSpaceDimensions(pathToDataSet, nSamples, nChannels);
 		m_textCtrl->AppendText(wxString(std::to_string(nChannels)) + wxString(" channels were recorded over ") +
 			wxString(std::to_string(nSamples/3e4)) + wxString(" seconds (") + wxString(std::to_string(nSamples)) + wxString(" samples)"));
-		wxProgressDialog prog{wxString("Exporting data"), wxString("Exporting .dat file... "), static_cast<int>((params.m_end_time-params.m_start_time)), this};
-		m_nwb_data->ExportData(pathToDataSet, outputfname, params, prog);
+        wxProgressDialog prog{wxString("Exporting data"), wxString("Exporting .dat file... "), static_cast<int>((params.m_end_time-params.m_start_time)), this};
+        m_nwb_data->ExportData(pathToDataSet, outputfname, params, prog);
     }
 }
 
@@ -150,6 +152,7 @@ ExportParams MyFrame::getExportParams() {
     wxWindowList::iterator iter;
     unsigned int start_channel, end_channel;
     double start_time, end_time;
+    bool split_into_tetrodes;
     for (iter = windows.begin(); iter != windows.end(); ++iter)
     {
         wxWindow * win = *iter;
@@ -171,12 +174,17 @@ ExportParams MyFrame::getExportParams() {
         	wxSpinCtrl * sc = (wxSpinCtrl*)win;
         	end_channel = sc->GetValue();
         }
+        if ( id == (int)CtrlIDs::kSplitIntoTetrodes ) {
+            wxCheckBox * cb = (wxCheckBox*)win;
+            split_into_tetrodes = cb->GetValue();
+        }
     }
     ExportParams params;
     params.m_start_channel = start_channel;
     params.m_end_channel = end_channel;
     params.m_start_time = (unsigned int)(start_time * SAMPLE_RATE);
     params.m_end_time = (unsigned int)(end_time * SAMPLE_RATE);
+    params.m_split_into_tetrodes = split_into_tetrodes;
     return params;
 }
 
@@ -208,28 +216,12 @@ void MyFrame::setExportParams(const ExportParams & params) {
         	sc->SetRange(params.m_start_channel, params.m_end_channel);
         	sc->SetValue(params.m_end_channel);
         }
+        if ( id == (int)CtrlIDs::kSplitIntoTetrodes ) {
+            wxCheckBox * cb = (wxCheckBox*)win;
+            cb->SetValue(params.m_split_into_tetrodes);
+        }
     }
 }
-
-// void MyFrame::OnExport(wxCommandEvent & evt) {
-// 	wxTreeItemId id = m_treeCtrl->GetFocusedItem();
-// 	std::string itemName = m_treeCtrl->GetItemText(id).ToStdString();
-
-//     wxString longName = wxString(m_filename);
-//     wxString suggestedName = longName.AfterLast('/');
-//     suggestedName = suggestedName.BeforeLast('.');
-//     suggestedName = suggestedName +  ".dat";
-//     // m_pathname set in OnOpen()
-//     std::cout << "m_pathname " << m_pathname << std::endl;
-// 	wxFileDialog saveFileDialog(this, ("Save .dat file"), wxString(m_pathname), suggestedName,
-//         "dat files(*.dat)|*.dat",
-//         wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-//     if (saveFileDialog.ShowModal() == wxID_CANCEL)
-//         return;
-
-//     std::string outputfname = saveFileDialog.GetPath().ToStdString();
-// 	GetDataSetInfo(itemName, outputfname);
-// }
 
 wxSpinCtrl * MyFrame::createSpinAndAddToSizer(wxWindow * parent, wxSizer * sizer, const wxString & label, wxWindowID id)
 {
@@ -265,6 +257,15 @@ wxButton * MyFrame::createButtonAndAddToSizer(wxWindow * parent, wxSizer * sizer
     return btn;
 }
 
+wxCheckBox * MyFrame::createCheckBoxAndAddToSizer(wxWindow * parent, wxSizer * sizer, const wxString & label, wxWindowID id)
+{
+    wxCheckBox * cb = new wxCheckBox(parent, id, label);
+    cb->SetLabel(label);
+    cb->Bind(wxEVT_CHECKBOX, &MyFrame::OnCheckEvent, this, id);
+    sizer->Add(cb, 0, wxLEFT | wxRIGHT, 5);
+    return cb;
+}
+
 void MyFrame::OnSpinEvent(wxSpinEvent & evt) {
 
 }
@@ -277,22 +278,68 @@ void MyFrame::OnButtonEvent(wxCommandEvent & evt) {
 	wxButton * btn = (wxButton*)evt.GetEventObject();
     int id = btn->GetId();
     if ( id == (int)CtrlIDs::kExport ) {
-    	wxTreeItemId id = m_treeCtrl->GetFocusedItem();
-		std::string itemName = m_treeCtrl->GetItemText(id).ToStdString();
-        wxString longName = wxString(m_filename);
-        wxString suggestedName = longName.AfterLast('/');
-        suggestedName = suggestedName.BeforeLast('.');
-        suggestedName = suggestedName +  ".dat";
-		// Open the file dialog
-		wxFileDialog saveFileDialog(this, ("Save .dat file"), wxString(m_pathname), suggestedName,
-        "dat files(*.dat)|*.dat",
-        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-	    if (saveFileDialog.ShowModal() == wxID_CANCEL)
-	        return;
+        if ( ! m_pathname.empty() ) {
+        	wxTreeItemId id = m_treeCtrl->GetFocusedItem();
+    		std::string itemName = m_treeCtrl->GetItemText(id).ToStdString();
+            ExportParams params = getExportParams();
+            int nChannels = params.m_end_channel - params.m_start_channel;
+            if ( params.m_split_into_tetrodes == true ) {
+                if ( (nChannels % 4) != 0 ) {
+                    wxMessageDialog msg(this, wxString("Channels needs to be a multiple of 4"), wxString("Error"));
+                    if (msg.ShowModal() == wxID_ANY)
+                        return;
+                    return;
+                }
+                else {
+                    wxString longName = wxString(m_filename);
+                    wxString suggestedName = longName.AfterLast('/');
+                    suggestedName = suggestedName.BeforeLast('.');
+                    // Open the file dialog
+                    wxFileDialog saveFileDialog(this, ("Save .dat file"), wxString(m_pathname), suggestedName,
+                    "dat files(*.dat)|*.dat",
+                    wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+                    if (saveFileDialog.ShowModal() == wxID_CANCEL)
+                        return;
+                    std::string outputfname = saveFileDialog.GetPath().ToStdString();
+                    unsigned int tet_num = 1;
+                    for (int i = params.m_start_channel; i < params.m_end_channel; i+=4)
+                    {
+                        ExportParams params_tmp = getExportParams();
+                        params_tmp.m_start_channel = i;
+                        params_tmp.m_end_channel = i+4;
+                        setExportParams(params_tmp);
+                        std::string outputfname_tet = outputfname + "_" + std::to_string(tet_num) + ".dat";
+                        GetDataSetInfo(itemName, outputfname_tet);
+                        ++tet_num;
+                    }
+                    return;
+                }
+            }
+            else {
+                wxString longName = wxString(m_filename);
+                wxString suggestedName = longName.AfterLast('/');
+                suggestedName = suggestedName.BeforeLast('.');
+                suggestedName = suggestedName +  ".dat";
+        		// Open the file dialog
+        		wxFileDialog saveFileDialog(this, ("Save .dat file"), wxString(m_pathname), suggestedName,
+                "dat files(*.dat)|*.dat",
+                wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+        	    if (saveFileDialog.ShowModal() == wxID_CANCEL)
+        	        return;
 
-	    std::string outputfname = saveFileDialog.GetPath().ToStdString();
-		GetDataSetInfo(itemName, outputfname);
+        	    std::string outputfname = saveFileDialog.GetPath().ToStdString();
+        		GetDataSetInfo(itemName, outputfname);
+            }
+        }
+        else
+            return;
     }
+}
+
+void MyFrame::OnCheckEvent(wxCommandEvent & evt) {
+    wxCheckBox * cb = (wxCheckBox*)evt.GetEventObject();
+    int id = cb->GetId();
+    if ( id == (int)CtrlIDs::kSplitIntoTetrodes ) {}
 }
 
 void MyFrame::UpdateControls(const std::string & pathToDataSet) {
