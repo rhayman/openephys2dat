@@ -8,12 +8,9 @@
 #include <map>
 #include <fstream>
 #include <stdio.h>
-#include <wx/progdlg.h>
 
 const unsigned int SAMPLE_RATE = 30000;
-
-class wxProgressDialog;
-
+class MyFrame;
 class NwbData
 {
 private:
@@ -35,6 +32,7 @@ public:
         std::map<std::string, std::string> output;
         if ( m_hdf_file ) {
             hid_t fid = m_hdf_file->getId();
+            std::cout << "fid " << fid << std::endl;
             H5Ovisit(fid, H5_INDEX_NAME, H5_ITER_NATIVE, op_func, (void*)&output);
         }
         return output;
@@ -60,7 +58,7 @@ public:
         }
     };
 
-    void ExportData(const std::string & pathToDataSet, const std::string & outputFname, const ExportParams & params, wxProgressDialog & prog) {
+    bool ExportData(const std::string & pathToDataSet, const std::string & outputFname, const ExportParams & params, wxProgressDialog & prog) {
         if ( m_hdf_file ) {
             if ( m_hdf_file->nameExists(pathToDataSet) ) {
                 H5::DataSet dataset = m_hdf_file->openDataSet(pathToDataSet);
@@ -152,7 +150,6 @@ public:
                             dataset.read(data_out, H5::PredType::NATIVE_INT16, memspace, dataspace);
                             outfile.write(reinterpret_cast<char*>(&data_out), sizeof(data_out));
                         }
-                        // ++inc;
                         prog.Update(iSample);
                     }
                     outfile.close();

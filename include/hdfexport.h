@@ -14,6 +14,7 @@
 #include <hdf5.h>
 #include <H5Cpp.h>
 #include <wx/spinctrl.h>
+#include <wx/progdlg.h>
 
 class MyFrame;
 class NwbData;
@@ -31,7 +32,8 @@ enum class CtrlIDs
 	kEndTime,
 	kStartChannel,
 	kEndChannel,
-	kSplitIntoTetrodes
+	kSplitIntoTetrodes,
+	kSaveEEGOnly
 };
 
 class MyApp : public wxApp
@@ -70,7 +72,6 @@ public:
 
 	void OnGetInfo(wxTreeEvent & event);
 	void OnItemRightClick(wxTreeEvent & event); // export from here
-	// void ItemSelected(wxTreeEvent &);
 	void AddItemsToTree(const std::map<std::string, std::string> items); // add here kinda...
 
 private:
@@ -84,6 +85,7 @@ struct ExportParams {
 	unsigned int m_start_time;
 	unsigned int m_end_time;
 	bool m_split_into_tetrodes = false;
+	bool m_save_eeg_only = false;
 };
 
 class MyFrame : public wxFrame
@@ -96,9 +98,9 @@ public:
 	void OnQuit(wxCommandEvent & event);
 	void OnAbout(wxCommandEvent & event);
 	void OnSaveSelected(wxCommandEvent & event) {};
-	// void OnExport(wxCommandEvent &);
 	void UpdateControls(const std::string &);
 	void GetDataSetInfo(const std::string &, const std::string &);
+	// static void (MyFrame::*IncrementProgressDialog)(int);
 
 private:
 	void CreateTree(long style) {};
@@ -116,6 +118,7 @@ private:
 	wxPanel * m_panel;
 	MyTreeCtrl * m_treeCtrl;
 	wxTextCtrl * m_textCtrl;
+	wxProgressDialog * m_prog;
 	NwbData * m_nwb_data;
 	std::string m_filename = "";
 	std::string m_pathname = "";

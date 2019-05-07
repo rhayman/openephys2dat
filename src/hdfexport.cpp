@@ -1,7 +1,6 @@
 #include "hdfexport.h"
 #include "scanHDF5.hpp"
 #include <fstream>
-#include <wx/progdlg.h>
 
 wxIMPLEMENT_APP(MyApp);
 
@@ -68,6 +67,8 @@ MyFrame::MyFrame(const wxString& title, int x, int y, int w, int h)
 	createButtonAndAddToSizer(m_panel, buttonSizer, wxString("Export"), (int)CtrlIDs::kExport);
     buttonSizer->AddSpacer(10);
     createCheckBoxAndAddToSizer(m_panel, buttonSizer, wxString("Split into tetrodes"), (int)CtrlIDs::kSplitIntoTetrodes);
+    buttonSizer->AddSpacer(10);
+    createCheckBoxAndAddToSizer(m_panel, buttonSizer, wxString("Save EEG only"), (int)CtrlIDs::kSaveEEGOnly);
 
     m_sizer->Add(treeSizer, wxSizerFlags().Expand());
     m_sizer->AddSpacer(10);
@@ -142,9 +143,14 @@ void MyFrame::GetDataSetInfo(const std::string & pathToDataSet, const std::strin
 		m_textCtrl->AppendText(wxString(std::to_string(nChannels)) + wxString(" channels were recorded over ") +
 			wxString(std::to_string(nSamples/3e4)) + wxString(" seconds (") + wxString(std::to_string(nSamples)) + wxString(" samples)"));
         wxProgressDialog prog{wxString("Exporting data"), wxString("Exporting .dat file... "), static_cast<int>((params.m_end_time-params.m_start_time)), this};
+        int value = 0;
         m_nwb_data->ExportData(pathToDataSet, outputfname, params, prog);
     }
 }
+
+// void MyFrame::IncrementProgressDialog(int value) {
+//     m_prog->Update(value);
+// }
 
 ExportParams MyFrame::getExportParams() {
 	// Grab some values about what ranges to export from the various controls
@@ -153,6 +159,7 @@ ExportParams MyFrame::getExportParams() {
     unsigned int start_channel, end_channel;
     double start_time, end_time;
     bool split_into_tetrodes;
+    bool save_eeg_only;
     for (iter = windows.begin(); iter != windows.end(); ++iter)
     {
         wxWindow * win = *iter;
@@ -178,6 +185,10 @@ ExportParams MyFrame::getExportParams() {
             wxCheckBox * cb = (wxCheckBox*)win;
             split_into_tetrodes = cb->GetValue();
         }
+        if ( id == (int)CtrlIDs::kSaveEEGOnly ) {
+            wxCheckBox * cb = (wxCheckBox*)win;
+            save_eeg_only = cb->GetValue();
+        }
     }
     ExportParams params;
     params.m_start_channel = start_channel;
@@ -185,6 +196,7 @@ ExportParams MyFrame::getExportParams() {
     params.m_start_time = (unsigned int)(start_time * SAMPLE_RATE);
     params.m_end_time = (unsigned int)(end_time * SAMPLE_RATE);
     params.m_split_into_tetrodes = split_into_tetrodes;
+    params.m_save_eeg_only = save_eeg_only;
     return params;
 }
 
@@ -219,6 +231,10 @@ void MyFrame::setExportParams(const ExportParams & params) {
         if ( id == (int)CtrlIDs::kSplitIntoTetrodes ) {
             wxCheckBox * cb = (wxCheckBox*)win;
             cb->SetValue(params.m_split_into_tetrodes);
+        }
+        if ( id == (int)CtrlIDs::kSaveEEGOnly ) {
+            wxCheckBox * cb = (wxCheckBox*)win;
+            cb->SetValue(params.m_save_eeg_only);
         }
     }
 }

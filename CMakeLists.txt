@@ -34,7 +34,7 @@ endif()
 # ---------- HDF5 -------------
 # where the HDF5 installation lives
 #set( HDF5_ROOT  /usr/local/hdf5 )
-set ( HDF5_USE_STATIC_LIBRARIES ON )
+set ( HDF5_USE_STATIC_LIBRARIES OFF )
 find_package( HDF5 REQUIRED CXX )
 if ( HDF5_FOUND )
 	include_directories( ${HDF5_CXX_INCLUDE_DIRS} )
