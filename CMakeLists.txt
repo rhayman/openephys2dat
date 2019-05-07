@@ -26,14 +26,13 @@ endif()
 # 	include_directories( ${GLS_INCLUDE_DIRS} )
 # endif()
 # ----------- boost -------------
-# find_package( Boost 1.36.0 REQUIRED system filesystem regex date_time )
-# if( Boost_FOUND )
-# 	include_directories( ${Boost_INCLUDE_DIRS} )
-# endif()
+find_package( Boost 1.36.0 REQUIRED filesystem )
+if( Boost_FOUND )
+	include_directories( ${Boost_INCLUDE_DIRS} )
+endif()
 
 # ---------- HDF5 -------------
 # where the HDF5 installation lives
-#set( HDF5_ROOT  /usr/local/hdf5 )
 set ( HDF5_USE_STATIC_LIBRARIES OFF )
 find_package( HDF5 REQUIRED CXX )
 if ( HDF5_FOUND )
@@ -48,4 +47,4 @@ link_directories(build /usr/local/hdf5/lib)
 set( SOURCES src/hdfexport.cpp )
 
 add_executable( hdf2dat ${SOURCES} )
-target_link_libraries( hdf2dat ${HDF5_CXX_LIBRARIES} ${wxWidgets_LIBRARIES})
+target_link_libraries( hdf2dat ${HDF5_CXX_LIBRARIES} ${wxWidgets_LIBRARIES} ${Boost_LIBRARIES})

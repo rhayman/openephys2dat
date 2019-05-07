@@ -1,6 +1,9 @@
 #include "hdfexport.h"
 #include "scanHDF5.hpp"
 #include <fstream>
+#include <boost/filesystem.hpp>
+
+namespace fs = boost::filesystem;
 
 wxIMPLEMENT_APP(MyApp);
 
@@ -324,8 +327,12 @@ void MyFrame::OnButtonEvent(wxCommandEvent & evt) {
                         params_tmp.m_start_channel = i;
                         params_tmp.m_end_channel = i+4;
                         setExportParams(params_tmp);
-                        std::string outputfname_tet = outputfname + "_" + std::to_string(tet_num) + ".dat";
-                        GetDataSetInfo(itemName, outputfname_tet);
+                        // std::string outputfname_tet = m_pathname + "/" + std::to_string(tet_num) + ".dat";
+                        fs::path dirname = fs::path(m_pathname + "/" + std::to_string(tet_num));
+                        if ( ! fs::exists(dirname) )
+                            fs::create_directories(dirname);
+                        std::string pname_ = m_pathname + "/" + std::to_string(tet_num) + "/" + "tetrode_" + std::to_string(tet_num) + ".dat";
+                        GetDataSetInfo(itemName, pname_);
                         ++tet_num;
                     }
                     return;
