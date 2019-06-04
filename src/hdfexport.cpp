@@ -2,6 +2,11 @@
 #include "scanHDF5.hpp"
 #include <fstream>
 #include <boost/filesystem.hpp>
+#include <chrono>
+#include <armadillo>
+#include "../../sigpack/sigpack.h"
+
+#include "../../dacq2cpp/include/xcorr.h"
 
 namespace fs = boost::filesystem;
 
@@ -66,8 +71,15 @@ MyFrame::MyFrame(const wxString& title, int x, int y, int w, int h)
 	buttonSizer->AddSpacer(10);
 	buttonSizer->Add(channelSizer, wxSizerFlags().Expand());
 	buttonSizer->AddSpacer(10);
-	// export button
-	createButtonAndAddToSizer(m_panel, buttonSizer, wxString("Export"), (int)CtrlIDs::kExport);
+	// button sizer
+    wxSizer * doButtonSizer = new wxBoxSizer(wxHORIZONTAL);
+	createButtonAndAddToSizer(m_panel, doButtonSizer, wxString("Export"), (int)CtrlIDs::kExport);
+    doButtonSizer->AddSpacer(10);
+    createButtonAndAddToSizer(m_panel, doButtonSizer, wxString("PSD"), (int)CtrlIDs::kPSD);
+    doButtonSizer->AddSpacer(10);
+    createButtonAndAddToSizer(m_panel, doButtonSizer, wxString("Spectrogram"), (int)CtrlIDs::kSpectrogram);
+    doButtonSizer->AddSpacer(10);
+    buttonSizer->Add(doButtonSizer, wxSizerFlags().Expand());
     buttonSizer->AddSpacer(10);
     createCheckBoxAndAddToSizer(m_panel, buttonSizer, wxString("Split into tetrodes"), (int)CtrlIDs::kSplitIntoTetrodes);
     buttonSizer->AddSpacer(10);
@@ -132,6 +144,7 @@ void MyFrame::OnOpen(wxCommandEvent & WXUNUSED(event))
 
 	m_nwb_data = new NwbData(m_filename);
 	std::map<std::string, std::string> hdfpaths = m_nwb_data->getPaths(m_filename);
+    m_treeCtrl->DeleteAllItems();
 	m_treeCtrl->AddItemsToTree(hdfpaths);
 
 	wxLogTextCtrl * logWindow = new wxLogTextCtrl(m_textCtrl);
@@ -141,19 +154,23 @@ void MyFrame::OnOpen(wxCommandEvent & WXUNUSED(event))
 void MyFrame::GetDataSetInfo(const std::string & pathToDataSet, const std::string & outputfname) {
 	if ( m_nwb_data ) {
 		ExportParams params = getExportParams();
-		int nSamples, nChannels;
-		m_nwb_data->getDataSpaceDimensions(pathToDataSet, nSamples, nChannels);
-		m_textCtrl->AppendText(wxString(std::to_string(nChannels)) + wxString(" channels were recorded over ") +
-			wxString(std::to_string(nSamples/3e4)) + wxString(" seconds (") + wxString(std::to_string(nSamples)) + wxString(" samples)"));
-        wxProgressDialog prog{wxString("Exporting data"), wxString("Exporting .dat file... "), static_cast<int>((params.m_end_time-params.m_start_time)), this};
-        int value = 0;
+        if ( bool(pathToDataSet.compare("continuous")) && bool(pathToDataSet.compare("data")) ) {
+    		int nSamples, nChannels;
+    		m_nwb_data->getDataSpaceDimensions(pathToDataSet, nSamples, nChannels);
+    		m_textCtrl->AppendText(wxString(std::to_string(nChannels)) + wxString(" channels were recorded over ") +
+    			wxString(std::to_string(nSamples/3e4)) + wxString(" seconds (") + wxString(std::to_string(nSamples)) + wxString(" samples)"));
+        }
+        else if ( bool(pathToDataSet.compare("binary")) && bool(pathToDataSet.compare("data")) && bool(pathToDataSet.compare("events")) ) {
+            int nSamples, nColumns;
+            m_nwb_data->getDataSpaceDimensions(pathToDataSet, nSamples, nColumns);
+            m_textCtrl->AppendText(wxString(std::to_string(nColumns)) + wxString(" columns of pos data were recorded over roughly ") +
+                wxString(std::to_string(nSamples/30)) + wxString(" seconds (") + wxString(std::to_string(nSamples)) + wxString(" samples)"));
+
+        }
+        wxProgressDialog prog{wxString("Exporting data"), wxString("Exporting data... "), static_cast<int>((params.m_end_time-params.m_start_time)), this};
         m_nwb_data->ExportData(pathToDataSet, outputfname, params, prog);
     }
 }
-
-// void MyFrame::IncrementProgressDialog(int value) {
-//     m_prog->Update(value);
-// }
 
 ExportParams MyFrame::getExportParams() {
 	// Grab some values about what ranges to export from the various controls
@@ -298,64 +315,174 @@ void MyFrame::OnButtonEvent(wxCommandEvent & evt) {
     int id = btn->GetId();
     if ( id == (int)CtrlIDs::kExport ) {
         if ( ! m_pathname.empty() ) {
-        	wxTreeItemId id = m_treeCtrl->GetFocusedItem();
-    		std::string itemName = m_treeCtrl->GetItemText(id).ToStdString();
+        	wxTreeItemId item_id = m_treeCtrl->GetFocusedItem();
+    		std::string itemName = m_treeCtrl->GetItemText(item_id).ToStdString();
             ExportParams params = getExportParams();
             int nChannels = params.m_end_channel - params.m_start_channel;
-            if ( params.m_split_into_tetrodes == true ) {
-                if ( (nChannels % 4) != 0 ) {
-                    wxMessageDialog msg(this, wxString("Channels needs to be a multiple of 4"), wxString("Error"));
-                    if (msg.ShowModal() == wxID_ANY)
+            if ( bool(itemName.compare("continuous")) && bool(itemName.compare("data")) ) {
+                if ( params.m_split_into_tetrodes == true ) {
+                    if ( (nChannels % 4) != 0 ) {
+                        wxMessageDialog msg(this, wxString("Channels needs to be a multiple of 4"), wxString("Error"));
+                        if (msg.ShowModal() == wxID_ANY)
+                            return;
                         return;
-                    return;
+                    }
+                    else {
+                        wxString longName = wxString(m_filename);
+                        wxString suggestedName = longName.AfterLast('/');
+                        suggestedName = suggestedName.BeforeLast('.');
+                        // Open the file dialog
+                        wxFileDialog saveFileDialog(this, ("Save .dat file"), wxString(m_pathname), suggestedName,
+                        "dat files(*.dat)|*.dat",
+                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+                        if (saveFileDialog.ShowModal() == wxID_CANCEL)
+                            return;
+                        std::string outputfname = saveFileDialog.GetPath().ToStdString();
+                        unsigned int tet_num = 1;
+                        for (int i = params.m_start_channel; i < params.m_end_channel; i+=4)
+                        {
+                            ExportParams params_tmp = getExportParams();
+                            params_tmp.m_start_channel = i;
+                            params_tmp.m_end_channel = i+4;
+                            setExportParams(params_tmp);
+                            // std::string outputfname_tet = m_pathname + "/" + std::to_string(tet_num) + ".dat";
+                            fs::path dirname = fs::path(m_pathname + "/" + std::to_string(tet_num));
+                            if ( ! fs::exists(dirname) )
+                                fs::create_directories(dirname);
+                            std::string pname_ = m_pathname + "/" + std::to_string(tet_num) + "/" + "tetrode_" + std::to_string(tet_num) + ".dat";
+                            GetDataSetInfo(itemName, pname_);
+                            ++tet_num;
+                        }
+                        return;
+                    }
                 }
                 else {
                     wxString longName = wxString(m_filename);
                     wxString suggestedName = longName.AfterLast('/');
                     suggestedName = suggestedName.BeforeLast('.');
-                    // Open the file dialog
-                    wxFileDialog saveFileDialog(this, ("Save .dat file"), wxString(m_pathname), suggestedName,
+                    suggestedName = suggestedName +  ".dat";
+            		// Open the file dialog
+            		wxFileDialog saveFileDialog(this, ("Save .dat file"), wxString(m_pathname), suggestedName,
                     "dat files(*.dat)|*.dat",
                     wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-                    if (saveFileDialog.ShowModal() == wxID_CANCEL)
-                        return;
-                    std::string outputfname = saveFileDialog.GetPath().ToStdString();
-                    unsigned int tet_num = 1;
-                    for (int i = params.m_start_channel; i < params.m_end_channel; i+=4)
-                    {
-                        ExportParams params_tmp = getExportParams();
-                        params_tmp.m_start_channel = i;
-                        params_tmp.m_end_channel = i+4;
-                        setExportParams(params_tmp);
-                        // std::string outputfname_tet = m_pathname + "/" + std::to_string(tet_num) + ".dat";
-                        fs::path dirname = fs::path(m_pathname + "/" + std::to_string(tet_num));
-                        if ( ! fs::exists(dirname) )
-                            fs::create_directories(dirname);
-                        std::string pname_ = m_pathname + "/" + std::to_string(tet_num) + "/" + "tetrode_" + std::to_string(tet_num) + ".dat";
-                        GetDataSetInfo(itemName, pname_);
-                        ++tet_num;
-                    }
-                    return;
+            	    if (saveFileDialog.ShowModal() == wxID_CANCEL)
+            	        return;
+
+            	    std::string outputfname = saveFileDialog.GetPath().ToStdString();
+            		GetDataSetInfo(itemName, outputfname);
                 }
             }
-            else {
-                wxString longName = wxString(m_filename);
-                wxString suggestedName = longName.AfterLast('/');
-                suggestedName = suggestedName.BeforeLast('.');
-                suggestedName = suggestedName +  ".dat";
-        		// Open the file dialog
-        		wxFileDialog saveFileDialog(this, ("Save .dat file"), wxString(m_pathname), suggestedName,
-                "dat files(*.dat)|*.dat",
-                wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-        	    if (saveFileDialog.ShowModal() == wxID_CANCEL)
-        	        return;
+            if ( itemName.compare("binary") ) { // pos data
 
-        	    std::string outputfname = saveFileDialog.GetPath().ToStdString();
-        		GetDataSetInfo(itemName, outputfname);
             }
         }
         else
             return;
+    }
+    else if ( id == (int)CtrlIDs::kPSD ) {
+        if ( ! m_pathname.empty() ) {
+            wxTreeItemId item_id = m_treeCtrl->GetFocusedItem();
+            std::string itemName = m_treeCtrl->GetItemText(item_id).ToStdString();
+            ExportParams params = getExportParams();
+            if ( bool(itemName.compare("continuous")) && bool(itemName.compare("data")) ) {
+
+
+                wxProgressDialog prog{wxString("Extracting data"), wxString("Extracting data... "), static_cast<int>((params.m_end_time-params.m_start_time)), this};
+                auto data = m_nwb_data->GetData(itemName, params, prog);
+                arma::Col<int16_t> arma_data(data);
+                arma::uword ds = 10;
+                sp::resampling<int16_t> resampler(arma::uword(1), ds );
+                arma::Col<int16_t> arma_small(int(arma_data.n_elem/ds), arma::fill::zeros);
+
+                // std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+                resampler.downfir(arma_data, arma_small);
+                // std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+
+                // auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+
+                // std::cout << "downfir(0) took " << duration / 1e6 << " seconds" << std::endl;
+                // std::cout << "arma::size(arma_small) " << arma::size(arma_small) << std::endl;
+                // t1 = std::chrono::high_resolution_clock::now();
+                sp::FIR_filt<int16_t,double,int16_t> F{};
+                unsigned int fs = 3e4/ds;
+                // std::cout << "fs " << fs << std::endl;
+                unsigned int nyq = fs/2;
+                // auto b = sp::fir1_bp(128, 1.0/nyq, 500.0/nyq);
+                // F.set_coeffs(b);
+                // auto filtered = F.filter(arma_small);
+                // t2 = std::chrono::high_resolution_clock::now();
+                // duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+                // std::cout << "filtering took " << duration / 1e6 << " seconds" << std::endl;
+
+                std::vector<int16_t> v = arma::conv_to<std::vector<int16_t>>::from(arma_small);
+                auto output = power_spectrum(v, fs);
+                std::cout << "output.power_sm.size() " << output.power_sm.size() << std::endl;
+                output.print();
+                sp::gplot gp;
+                gp.window("PSD", 10,10,500,400);
+                // gp.send2gp("set xtics (\"-Fs/2\" 1,\"0\" 256,\"Fs/2\" 512)");  // Direct call to gnuplot pipe
+                gp.ylabel("Power");gp.xlabel("Frequency");
+                gp.xlim(0,125);
+                std::vector<double> _power;
+                std::vector<double> _freqs;
+                unsigned int inc = output.power_sm.size() / 10000;
+                for (int i = 0; i < output.power_sm.size() - inc; i+=inc)
+                {
+                    _power.push_back(output.power_sm[i]);
+                    _freqs.push_back(output.freqs[i]);
+                }
+                long int fft_sz = nextpow2(_power.size());
+                long int fft_half_sz = (fft_sz / 2.0 + 1);
+                int _nyq = (3e4 / ds) / inc;
+                double bins_per_hz = (fft_half_sz - 1) / float(_nyq);
+                int k_length = std::round(2 * bins_per_hz);
+                std::cout << "fft_sz " << fft_sz << std::endl;
+                std::cout << "fft_half_sz " << fft_half_sz << std::endl;
+                std::cout << "nyq " << nyq << std::endl;
+                std::cout << "bins_per_hz " << bins_per_hz << std::endl;
+                std::cout << "k_length " << k_length << std::endl;
+                // This is a magic number that needs fixing
+                double k_sigma = 0.0515 * bins_per_hz;
+                std::cout << "k_sigma " << k_sigma << std::endl;
+                auto g = gaussian1d(0.0, k_sigma, k_length);
+                auto sm_power = fftconvolve(_power, g);
+                gp.add_rect(6,12);
+                arma::vec res(sm_power);
+                arma::vec freqs(_freqs);
+                if ( freqs.size() > res.size() )
+                    freqs.resize(res.size());
+                if ( res.size() > freqs.size() )
+                    res.resize(freqs.size());
+                gp.plot_add(freqs, res, "");
+                gp.plot_show();
+            }
+        }
+    }
+    else if ( id == (int)CtrlIDs::kSpectrogram ) {
+        if ( ! m_pathname.empty() ) {
+            wxTreeItemId item_id = m_treeCtrl->GetFocusedItem();
+            std::string itemName = m_treeCtrl->GetItemText(item_id).ToStdString();
+            ExportParams params = getExportParams();
+            if ( bool(itemName.compare("continuous")) && bool(itemName.compare("data")) ) {
+
+                wxProgressDialog prog{wxString("Extracting data"), wxString("Extracting data... "), static_cast<int>((params.m_end_time-params.m_start_time)), this};
+                auto data = m_nwb_data->GetData(itemName, params, prog);
+                arma::Col<int16_t> arma_data(data);
+                arma::uword ds = 10;
+                sp::resampling<int16_t> resampler(arma::uword(1), ds );
+                arma::Col<int16_t> arma_small(int(arma_data.n_elem/ds), arma::fill::zeros);
+                resampler.downfir(arma_data, arma_small);
+                arma::mat _spec = 10*arma::log10(arma::abs(sp::specgram(arma_small, 512, 128)));
+                std::cout << "_spec.n_rows " << _spec.n_rows << std::endl;
+                std::cout << "_spec.n_cols " << _spec.n_cols << std::endl;
+                auto spec = _spec.submat(1,1,(_spec.n_rows)/2,_spec.n_cols);
+                sp::gplot gp;
+                gp.window("Spectrogram", 10,10,500,400);
+                gp.ylabel("Frequency");
+                gp.xlabel("Time");
+                gp.image(spec);
+            }
+        }
     }
 }
 

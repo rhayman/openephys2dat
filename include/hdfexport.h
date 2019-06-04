@@ -28,6 +28,8 @@ enum class CtrlIDs
 	kAbout,
 	kQuit,
 	kExport,
+	kPSD,
+	kSpectrogram,
 	kStartTime,
 	kEndTime,
 	kStartChannel,
@@ -100,7 +102,6 @@ public:
 	void OnSaveSelected(wxCommandEvent & event) {};
 	void UpdateControls(const std::string &);
 	void GetDataSetInfo(const std::string &, const std::string &);
-	// static void (MyFrame::*IncrementProgressDialog)(int);
 
 private:
 	void CreateTree(long style) {};

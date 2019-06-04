@@ -58,6 +58,82 @@ public:
         }
     };
 
+    std::vector<int16_t> GetData(const std::string & pathToDataSet, const ExportParams & params, wxProgressDialog & prog) {
+        std::vector<int16_t> out_vec;
+        if ( m_hdf_file ) {
+            if ( m_hdf_file->nameExists(pathToDataSet) ) {
+                H5::DataSet dataset = m_hdf_file->openDataSet(pathToDataSet);
+                H5T_class_t type_class = dataset.getTypeClass();
+                if ( type_class == H5T_INTEGER ) {
+                    H5::IntType inttype = dataset.getIntType();
+                    size_t precision = inttype.getPrecision();
+                    H5::DataSpace dataspace = dataset.getSpace();
+                    int rank = dataspace.getSimpleExtentNdims();
+                    hsize_t dims_out[2];
+                    int ndims = dataspace.getSimpleExtentDims(dims_out, NULL);
+                    int nSamples = dims_out[0];
+                    int nChannels = dims_out[1];
+                    hsize_t start_sample = (hsize_t)params.m_start_time;
+                    hsize_t end_sample = (hsize_t)params.m_end_time;
+                    hsize_t start_channel = (hsize_t)params.m_start_channel;
+                    hsize_t end_channel = (hsize_t)params.m_start_channel+1;
+                    hsize_t sample_block_inc = 30000;
+                    int16_t data_out[sample_block_inc];
+                    hsize_t dimsm[2];
+                    dimsm[0] = sample_block_inc;
+                    dimsm[1] = 1;
+                    hsize_t offset[2];
+                    offset[0] = start_sample;
+                    offset[1] = start_channel;
+                    hsize_t stride[2];
+                    stride[0] = 1;
+                    stride[1] = 1;
+                    hsize_t block[2];
+                    block[0] = 1;
+                    block[1] = 1;
+                    hsize_t count[2]; // count
+                    count[0] = sample_block_inc;
+                    count[1] = 1;
+                    H5::DataSpace memspace(2, dimsm, NULL);
+                    // unsigned int vec_size = end_sample - start_sample;
+                    // out_vec.resize(vec_size, 0);
+                    unsigned int prog_idx = 0;
+                    for (int iSample = start_sample; iSample < end_sample; iSample+=sample_block_inc) {
+                        offset[0] = iSample;
+                        if ( (iSample + sample_block_inc) > end_sample ) {
+                            hsize_t small_sample_block_inc = end_sample - iSample;
+                            hsize_t small_count[2];
+                            small_count[0] = small_sample_block_inc;
+                            small_count[1] = 1;
+                            hsize_t small_dimsm[2];
+                            small_dimsm[0] = small_sample_block_inc;
+                            small_dimsm[1] = 1;
+                            H5::DataSpace small_memspace(2, small_dimsm, NULL);
+                            int16_t small_data_chunk[small_sample_block_inc];
+                            dataspace.selectHyperslab(H5S_SELECT_SET, small_count, offset, stride, block);
+                            dataset.read(small_data_chunk, H5::PredType::NATIVE_INT16, small_memspace, dataspace);
+                            for (unsigned int i = 0; i < small_sample_block_inc; ++i) {
+                                out_vec.push_back(small_data_chunk[i]);
+                            }
+                            prog_idx += small_sample_block_inc;
+                        }
+                        else {
+                            dataspace.selectHyperslab(H5S_SELECT_SET, count, offset, stride, block);
+                            dataset.read(data_out, H5::PredType::NATIVE_INT16, memspace, dataspace);
+                            for (unsigned int i = 0; i < sample_block_inc; ++i) {
+                                out_vec.push_back(data_out[i]);
+                            }
+                            prog_idx += sample_block_inc;
+                        }
+                        prog.Update(prog_idx);
+                    }
+                return out_vec;
+                }
+            }
+        }
+        return out_vec;
+    };
+
     bool ExportData(const std::string & pathToDataSet, const std::string & outputFname, const ExportParams & params, wxProgressDialog & prog) {
         if ( m_hdf_file ) {
             if ( m_hdf_file->nameExists(pathToDataSet) ) {

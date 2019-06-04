@@ -20,11 +20,12 @@ if( wxWidgets_FOUND )
 	include( ${wxWidgets_USE_FILE} )
 endif()
 
-# ----------- gsl --------------
-# find_package( GSL REQUIRED )
-# if ( GSL_FOUND )
-# 	include_directories( ${GLS_INCLUDE_DIRS} )
-# endif()
+# --------- armadillo -----------
+find_package( Armadillo REQUIRED )
+if ( ARMADILLO_FOUND )
+	include_directories( ${ARMADILLO_INCLUDE_DIRS} )
+endif()
+
 # ----------- boost -------------
 find_package( Boost 1.36.0 REQUIRED filesystem )
 if( Boost_FOUND )
@@ -47,4 +48,4 @@ link_directories(build /usr/local/hdf5/lib)
 set( SOURCES src/hdfexport.cpp )
 
 add_executable( hdf2dat ${SOURCES} )
-target_link_libraries( hdf2dat ${HDF5_CXX_LIBRARIES} ${wxWidgets_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries( hdf2dat fftw3 ${HDF5_CXX_LIBRARIES} ${wxWidgets_LIBRARIES} ${Boost_LIBRARIES} ${ARMADILLO_LIBRARIES} )
