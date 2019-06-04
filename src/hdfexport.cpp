@@ -4,9 +4,9 @@
 #include <boost/filesystem.hpp>
 #include <chrono>
 #include <armadillo>
-#include "../../sigpack/sigpack.h"
+#include "../include/sigpack/sigpack.h"
 
-#include "../../dacq2cpp/include/xcorr.h"
+#include "../include/xcorr.h"
 
 namespace fs = boost::filesystem;
 
