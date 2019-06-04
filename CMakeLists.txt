@@ -41,7 +41,7 @@ if ( HDF5_FOUND )
 endif()
 
 # project headers
-include_directories(include)
+include_directories(include include/sigpack)
 
 link_directories(build /usr/local/hdf5/lib)
 # project sources
