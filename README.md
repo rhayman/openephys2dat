@@ -43,16 +43,9 @@ sudo make install
 make check - optional
 ```
 
-Then in the CMakeLists.txt file the line that reads:
-
-> set( HDF5_ROOT  /usr/local/hdf5 )
-
-Should mean that all the libraries, binaries etc should be the ones you need.
-
 Download or clone the repo or whatever and then at the top level do:
 
 ```
-mkdir bin
 mkdir build
 cd build
 cmake ..
