@@ -11,7 +11,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/bin )
 
 
 # ----------- wxwidgets ---------
-set( wxWidgets_CONFIG_OPTIONS --toolkit=gtk2 )
+set( wxWidgets_CONFIG_OPTIONS  )
 find_package( wxWidgets REQUIRED std aui adv core base )
 if( wxWidgets_FOUND )
 	set( wxWidgets_USE_STATIC ON )

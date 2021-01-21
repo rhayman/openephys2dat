@@ -1,5 +1,5 @@
-#ifndef SCANHDF5_H_
-#define SCANHDF5_H_
+#ifndef _SCANHDF5_H_
+#define _SCANHDF5_H_
 
 #include <hdf5.h>
 
@@ -10,7 +10,16 @@
 #include <stdio.h>
 
 const unsigned int SAMPLE_RATE = 30000;
-class MyFrame;
+struct ExportParams {
+	unsigned int m_start_channel;
+	unsigned int m_end_channel;
+	unsigned int m_start_time;
+	unsigned int m_end_time;
+	bool m_split_into_tetrodes = false;
+	bool m_save_eeg_only = false;
+};
+
+// class MyFrame;
 class NwbData
 {
 private:

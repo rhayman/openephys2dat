@@ -18,6 +18,7 @@
 
 class MyFrame;
 class NwbData;
+class ExportParams;
 
 const std::string defaultDir{"/home/robin/Dropbox/Science/Recordings/OpenEphys"};
 
@@ -81,14 +82,7 @@ private:
 	void OnSelectionChanged(wxTreeEvent &);
 };
 
-struct ExportParams {
-	unsigned int m_start_channel;
-	unsigned int m_end_channel;
-	unsigned int m_start_time;
-	unsigned int m_end_time;
-	bool m_split_into_tetrodes = false;
-	bool m_save_eeg_only = false;
-};
+
 
 class MyFrame : public wxFrame
 {
