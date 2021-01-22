@@ -2,7 +2,7 @@
 #define _SCANHDF5_H_
 
 #include <hdf5.h>
-
+#include <H5Cpp.h>
 #include <vector>
 #include <string>
 #include <map>
@@ -19,7 +19,6 @@ struct ExportParams {
 	bool m_save_eeg_only = false;
 };
 
-// class MyFrame;
 class NwbData
 {
 private:
@@ -37,7 +36,7 @@ public:
         }
     };
 
-    std::map<std::string, std::string> getPaths(std::string file) {
+    std::map<std::string, std::string> getPaths() {
         std::map<std::string, std::string> output;
         if ( m_hdf_file ) {
             hid_t fid = m_hdf_file->getId();
@@ -67,7 +66,7 @@ public:
         }
     };
 
-    std::vector<int16_t> GetData(const std::string & pathToDataSet, const ExportParams & params, wxProgressDialog & prog) {
+    std::vector<int16_t> GetData(const std::string & pathToDataSet, const ExportParams & params) {
         std::vector<int16_t> out_vec;
         if ( m_hdf_file ) {
             if ( m_hdf_file->nameExists(pathToDataSet) ) {
@@ -134,7 +133,6 @@ public:
                             }
                             prog_idx += sample_block_inc;
                         }
-                        prog.Update(prog_idx);
                     }
                 return out_vec;
                 }
@@ -143,7 +141,7 @@ public:
         return out_vec;
     };
 
-    bool ExportData(const std::string & pathToDataSet, const std::string & outputFname, const ExportParams & params, wxProgressDialog & prog) {
+    bool ExportData(const std::string & pathToDataSet, const std::string & outputFname, const ExportParams & params) {
         if ( m_hdf_file ) {
             if ( m_hdf_file->nameExists(pathToDataSet) ) {
                 H5::DataSet dataset = m_hdf_file->openDataSet(pathToDataSet);
@@ -235,12 +233,13 @@ public:
                             dataset.read(data_out, H5::PredType::NATIVE_INT16, memspace, dataspace);
                             outfile.write(reinterpret_cast<char*>(&data_out), sizeof(data_out));
                         }
-                        prog.Update(iSample);
                     }
                     outfile.close();
                 }
             }
+            return true;
         }
+        return false;
     };
 
     static herr_t op_func (hid_t loc_id, const char *name, const H5O_info_t *info, void *operator_data) {
