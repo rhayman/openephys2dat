@@ -40,16 +40,19 @@ public:
         std::map<std::string, std::string> output;
         if ( m_hdf_file ) {
             hid_t fid = m_hdf_file->getId();
-            std::cout << "fid " << fid << std::endl;
             H5Ovisit(fid, H5_INDEX_NAME, H5_ITER_NATIVE, op_func, (void*)&output);
         }
         return output;
     };
 
-    std::vector<std::string> getMembers(hid_t fid) {
+    std::vector<std::string> getMembers() {
+        // BROKEN
         std::vector<std::string> output;
-        hsize_t idx;
-        H5Literate(fid, H5_INDEX_NAME, H5_ITER_NATIVE, &idx, l_op_func, (void*)&output);
+        if ( m_hdf_file ) {
+            hsize_t idx;
+            hid_t fid = m_hdf_file->getId();
+            H5Literate(fid, H5_INDEX_NAME, H5_ITER_NATIVE, &idx, l_op_func, (void*)&output);
+        }
         return output;
     };
 
