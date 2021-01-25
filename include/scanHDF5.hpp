@@ -8,6 +8,7 @@
 #include <map>
 #include <fstream>
 #include <stdio.h>
+#include "../include/tqdm/include/tqdm/tqdm.h"
 
 const unsigned int SAMPLE_RATE = 30000;
 struct ExportParams {
@@ -212,7 +213,6 @@ public:
                     count[0] = sample_block_inc;
                     count[1] = end_channel-start_channel;
                     H5::DataSpace memspace(2, dimsm, NULL);
-                    // int inc = 0;
                     // Open the output file to write into
                     std::ofstream outfile(outputFname, std::ifstream::out);
                     for (int iSample = start_sample; iSample < end_sample; iSample+=sample_block_inc) {
