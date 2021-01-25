@@ -18,7 +18,7 @@ if ( HDF5_FOUND )
 endif()
 
 # project headers
-include_directories(include include/tqdm/include/tqdm)
+include_directories(include  include/include/include/)
 
 link_directories(build /usr/include/hdf5/serial)
 
