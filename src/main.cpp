@@ -1,4 +1,5 @@
 #include <sys/stat.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sstream>
 #include <fstream>
@@ -33,6 +34,9 @@ int main(int argc, char const *argv[])
             return 1;
         }
     }
+    infile.close();
+    // create an output stream for saving the number of samples each file consists of
+    std::fstream outInfoStream(output_dir + "continuous_data_info.txt", std::fstream::out);
     std::vector<std::string> output_files;
     for ( const auto & this_file : file_list ) {
         NwbData data{this_file};
@@ -69,6 +73,8 @@ int main(int argc, char const *argv[])
                 }
             }
         }
+        // output some data to the "continuous_data_info.txt" file
+        outInfoStream << this_file << "\t" << path2data << "\t" << nsamps << std::endl;
         ExportParams params;
         params.m_start_channel = 0;
         params.m_end_channel = NCHANNELS2EXTRACT;
@@ -77,7 +83,23 @@ int main(int argc, char const *argv[])
 
         auto output_fname = this_file.substr(0,this_file.find_first_of('.')) + ".dat";
         output_files.push_back(output_fname);
-        // data.ExportData(path2data, output_fname, params);
+        data.ExportData(path2data, output_fname, params);
+    }
+    outInfoStream.close();
+    // use cat to concatenate the files into one final thing
+    std::string catCommand = "cat ";
+    for ( const auto & fname : output_files ) {
+        catCommand += fname + " ";
+    }
+    catCommand += "> " + output_dir + "combined.dat";
+    const char * command = catCommand.c_str();
+    std::cout << "Concatenating data files..." << std::endl;
+    std::system(command);
+    // Delete the .dat files that make up the combined one
+    for ( const auto & fname : output_files ) {
+        catCommand = "rm " + fname;
+        const char * command = catCommand.c_str();
+        std::system(command);
     }
     return 0;
 }

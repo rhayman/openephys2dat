@@ -214,8 +214,6 @@ public:
                     count[1] = end_channel-start_channel;
                     H5::DataSpace memspace(2, dimsm, NULL);
                     // Progress bar for cli
-                    auto progress = 0.0f;
-                    auto inc = 100.0f/(float(end_sample)/(float)sample_block_inc);
                     std::cout << "Extracting data from:\n" + m_filename + "..." << std::endl;;
                     indicators::ProgressBar pbar{indicators::option::BarWidth{50},
                                                 indicators::option::Start{"["},
@@ -224,12 +222,14 @@ public:
                                                 indicators::option::Remainder{"-"},
                                                 indicators::option::End{" ]"},
                                                 indicators::option::PostfixText{"Extracting data"},
+                                                indicators::option::MaxProgress{end_sample},
                                                 indicators::option::ForegroundColor{indicators::Color::cyan},
                                                 indicators::option::FontStyles{std::vector<indicators::FontStyle>{indicators::FontStyle::bold}}
                     };
                     indicators::show_console_cursor(false);
                     // Open the output file to write into
                     std::ofstream outfile(outputFname, std::ifstream::out);
+                    auto pbar_val = 0;
                     for (int iSample = start_sample; iSample < end_sample; iSample+=sample_block_inc) {
                         offset[0] = iSample;
                         if ( (iSample + sample_block_inc) > end_sample ) {
@@ -245,16 +245,16 @@ public:
                             dataspace.selectHyperslab(H5S_SELECT_SET, small_count, offset, stride, block);
                             dataset.read(small_data_chunk, H5::PredType::NATIVE_INT16, small_memspace, dataspace);
                             outfile.write(reinterpret_cast<char*>(&small_data_chunk), sizeof(small_data_chunk));
-                            pbar.set_progress(100);
+                            pbar_val = end_sample;
                         }
                         else {
                             dataspace.selectHyperslab(H5S_SELECT_SET, count, offset, stride, block);
                             dataset.read(data_out, H5::PredType::NATIVE_INT16, memspace, dataspace);
                             outfile.write(reinterpret_cast<char*>(&data_out), sizeof(data_out));
-                            progress += inc;
-                            pbar.set_progress(progress);
+                            pbar_val = iSample;
                         }
-                        
+                        pbar.set_progress(pbar_val);
+                        pbar.set_option(indicators::option::PostfixText{std::to_string(pbar_val)+ "/" + std::to_string(end_sample)});
                     }
                     indicators::show_console_cursor(true);
                     outfile.close();
