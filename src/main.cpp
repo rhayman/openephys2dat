@@ -119,10 +119,12 @@ int main(int argc, char const *argv[])
         posParams.m_start_time = 0;
         posParams.m_end_time = npossamps;
         posParams.m_block_size = npossamps;
-        std::cout << "writing pos data " << std::endl;
+
+        std::cout << "Extracting data from " << this_file << std::endl;
+        std::cout << "Exporting pos data..." << std::endl;
         auto output_pos_fname = this_file.substr(0,this_file.find_first_of('.')) + "_pos.npy";
         data.ExportPosData(path2PosData, output_pos_fname, posParams);
-        std::cout << "pos exported" << std::endl;
+        std::cout << "Pos exported" << std::endl;
 
         // output some data to the "continuous_data_info.txt" file
         outInfoStream << this_file << "\t" << path2data << "\t" << nsamps << std::endl;
@@ -134,14 +136,14 @@ int main(int argc, char const *argv[])
 
         auto output_fname = this_file.substr(0,this_file.find_first_of('.')) + ".dat";
         output_files.push_back(output_fname);
-        // std::cout << "Extracting data from " << this_file << std::endl;
-        // data.ExportData(path2data, output_fname, params);
+        
+        data.ExportData(path2data, output_fname, params);
         
     }
     show_console_cursor(true);
     
     outInfoStream.close();
-    /*
+    
     // use cat to concatenate the files into one final thing
     std::string catCommand = "cat ";
     for ( const auto & fname : output_files ) {
@@ -157,6 +159,6 @@ int main(int argc, char const *argv[])
         const char * command = catCommand.c_str();
         std::system(command);
     }
-    */
+    
     return 0;
 }
