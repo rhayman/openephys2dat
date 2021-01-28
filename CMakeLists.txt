@@ -25,4 +25,8 @@ link_directories(build /usr/include/hdf5/serial /usr/local/include)
 set( SOURCES src/main.cpp )
 
 add_executable( hdf2dat ${SOURCES} )
-target_link_libraries( hdf2dat ${HDF5_CXX_LIBRARIES}  /usr/local/lib/libcnpy.so)
+target_link_libraries( hdf2dat 
+						${HDF5_CXX_LIBRARIES}  
+						/usr/local/lib/libcnpy.so
+						/usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5_cpp.so
+						/usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5.so)
