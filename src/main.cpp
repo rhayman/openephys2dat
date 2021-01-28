@@ -136,7 +136,19 @@ int main(int argc, char const *argv[])
 
         auto output_fname = this_file.substr(0,this_file.find_first_of('.')) + ".dat";
         output_files.push_back(output_fname);
-        
+
+        // Export the timestamps associated with the neural data too
+        std::vector<std::string> pathToNeuralDataComponents = split(path2data, '/');
+        std::string pathToTimeStamps;
+
+        for (size_t i = 0; i < pathToNeuralDataComponents.size()-1; i++)
+            pathToTimeStamps += pathToNeuralDataComponents[i] + "/";
+
+        pathToTimeStamps += "timestamps";
+        auto output_ts_fname = this_file.substr(0,this_file.find_first_of('.')) + "_ts.npy";
+        std::cout << "Exporting timestamps..." << std::endl;
+        data.ExportTimeStamps(pathToTimeStamps, output_ts_fname, params);
+        std::cout << "Exported timestamps." << std::endl;
         data.ExportData(path2data, output_fname, params);
         
     }

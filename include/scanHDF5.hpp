@@ -156,6 +156,15 @@ public:
         return out_vec;
     };
 
+    bool ExportTimeStamps(const std::string & pathToTimeStamps, const std::string & outputFname, ExportParams & params) {
+        params.dataType = H5::PredType::NATIVE_FLOAT;
+        params.m_start_channel = 0;
+        params.m_end_channel = 1;
+        auto ts = GetData<float>(pathToTimeStamps, params);
+        cnpy::npy_save(outputFname, &ts[0], {ts.size(), 1}, "w");
+        return true;
+    }
+
     bool ExportPosData(const std::string & pathToDataSet, const std::string & outputFname, ExportParams & params) {
         // pathToDataSet - only points to the H5::Group that contains the pos data so it needs to be 
         // filled out to get the actual H5::Dataset(s)
