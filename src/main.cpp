@@ -14,13 +14,30 @@ inline bool does_file_exist (const std::string& name) {
     return (stat (name.c_str(), &buffer) == 0); 
 }
 
+// Split a string given a delimiter and either return in a
+// pre-constructed vector (#1) or returns a new one (#2)
+inline void split(const std::string &s, char delim, std::vector<std::string> &elems)
+{
+	std::stringstream ss;
+	ss.str(s);
+	std::string item;
+	while (std::getline(ss, item, delim))
+		elems.push_back(item);
+};
+
+inline std::vector<std::string> split(const std::string &s, char delim)
+{
+	std::vector<std::string> elems;
+	split(s, delim, elems);
+	return elems;
+}
+
 int main(int argc, char const *argv[])
 {
     if ( argc <= 1 ) {
         return 1;
     }
     std::fstream infile{ argv[1] };
-
     std::string line, output_dir;
     // the first line should be the output directory so read that
     std::getline(infile, output_dir);
@@ -31,6 +48,7 @@ int main(int argc, char const *argv[])
         }
         else {
             std::cout << "File : " + line + " does not exist" << std::endl;
+            infile.close();
             return 1;
         }
     }
@@ -38,9 +56,12 @@ int main(int argc, char const *argv[])
     // create an output stream for saving the number of samples each file consists of
     std::fstream outInfoStream(output_dir + "continuous_data_info.txt", std::fstream::out);
     std::vector<std::string> output_files;
+    
+    show_console_cursor(false);
     for ( const auto & this_file : file_list ) {
         NwbData data{this_file};
         auto paths = data.getPaths();
+        
         std::string path2data;
         std::vector<std::string> potentialPaths2Data;
         for ( auto p : paths ) {
@@ -73,6 +94,40 @@ int main(int argc, char const *argv[])
                 }
             }
         }
+        // get the components of the path to the data...
+        std::vector<std::string> path2PosComponents = split(path2data, '/');
+        // ... the 3rd of these ('recording1', 'recording2' etc) can change; the
+        // code above ensures we have the 'largest' recording so construct the path to the 
+        // position data here
+        std::string path2PosData;
+        if ( ! path2PosComponents.empty() ) {
+            for (int i = 0; i < 3; ++i)
+                path2PosData += path2PosComponents[i] + "/";
+            path2PosData += "events/binary1";
+        }
+        else {
+            std::cout << "Could not find pos data. Exiting" << std::endl;
+            return 1;
+        }
+        // Export the pos data
+        int npossamps, nposchans;
+        // std::cout << "path2PosData = " << path2PosData << std::endl;
+        data.getDataSpaceDimensions(path2PosData+"/data", npossamps, nposchans);
+        ExportParams posParams;
+        posParams.m_start_channel = 0;
+        posParams.m_end_channel = 3;
+        posParams.m_start_time = 0;
+        posParams.m_end_time = npossamps;
+        posParams.m_block_size = npossamps;
+        posParams.dataType = H5::PredType::NATIVE_UINT32;
+        auto posdata = data.GetData(path2PosData+"/data", posParams);
+        std::cout << "posdata.size() + " << posdata.size() << std::endl;
+        for (size_t i = 0; i < 10; i++)
+        {
+            std::cout << posdata[i] << "\t";
+        }
+        std::cout << std::endl;
+
         // output some data to the "continuous_data_info.txt" file
         outInfoStream << this_file << "\t" << path2data << "\t" << nsamps << std::endl;
         ExportParams params;
@@ -83,9 +138,14 @@ int main(int argc, char const *argv[])
 
         auto output_fname = this_file.substr(0,this_file.find_first_of('.')) + ".dat";
         output_files.push_back(output_fname);
-        data.ExportData(path2data, output_fname, params);
+        // std::cout << "Extracting data from " << this_file << std::endl;
+        // data.ExportData(path2data, output_fname, params);
+        
     }
+    show_console_cursor(true);
+    
     outInfoStream.close();
+    /*
     // use cat to concatenate the files into one final thing
     std::string catCommand = "cat ";
     for ( const auto & fname : output_files ) {
@@ -101,5 +161,6 @@ int main(int argc, char const *argv[])
         const char * command = catCommand.c_str();
         std::system(command);
     }
+    */
     return 0;
 }

@@ -5,19 +5,27 @@
 #include <H5Cpp.h>
 #include <vector>
 #include <string>
+#include <memory>
 #include <map>
 #include <fstream>
 #include <stdio.h>
+
 #include "../include/include/include/indicators/progress_bar.hpp"
 #include "../include/include/include/indicators/cursor_control.hpp"
+
 const unsigned int SAMPLE_RATE = 30000;
+
+using namespace indicators;
 struct ExportParams {
 	unsigned int m_start_channel;
 	unsigned int m_end_channel;
 	unsigned int m_start_time;
 	unsigned int m_end_time;
+    unsigned int m_block_size = 30000;
 	bool m_split_into_tetrodes = false;
 	bool m_save_eeg_only = false;
+    // NATIVE_INT16 = neural data type, NATIVE_UNIT32 = pos data, NATIVE_FLOAT = timestamps for pos (everything else too?)
+    H5::PredType dataType = H5::PredType::NATIVE_INT16;
 };
 
 class NwbData
@@ -26,6 +34,7 @@ private:
     H5::H5File * m_hdf_file;
     std::string m_filename;
 public:
+
     NwbData(std::string filename) : m_filename(filename) {
         m_hdf_file = new H5::H5File(m_filename, H5F_ACC_RDONLY);
     };
@@ -69,9 +78,31 @@ public:
             }
         }
     };
+/*
+    void CheckTypeClass(const std::string path2DataSet) {
+        if ( m_hdf_file ) {
+            if ( m_hdf_file->nameExists(path2DataSet) ) {
+                H5::DataSet dataset = m_hdf_file->openDataSet(path2DataSet);
+                H5T_class_t type_class = dataset.getTypeClass();
+                if ( type_class == H5T_INTEGER ) {
 
-    std::vector<int16_t> GetData(const std::string & pathToDataSet, const ExportParams & params) {
-        std::vector<int16_t> out_vec;
+                    std::cout << " got int for pos data" << std::endl;
+                    hsize_t dims_out[2];
+                    H5::DataSpace dataspace = dataset.getSpace();
+                    int ndims = dataspace.getSimpleExtentDims(dims_out, NULL);
+                    int nSamples = dims_out[0];
+                    int nChannels = dims_out[1];
+                    std::cout << "nSAmples = " << nSamples << std::endl;
+                    std::cout << "nChannels = " << nChannels << std::endl;
+                }
+            
+            }
+        }
+    };
+*/
+
+    std::vector<uint32_t> GetData(const std::string & pathToDataSet, const ExportParams & params) {
+        std::vector<uint32_t> out_vec;
         if ( m_hdf_file ) {
             if ( m_hdf_file->nameExists(pathToDataSet) ) {
                 H5::DataSet dataset = m_hdf_file->openDataSet(pathToDataSet);
@@ -88,12 +119,12 @@ public:
                     hsize_t start_sample = (hsize_t)params.m_start_time;
                     hsize_t end_sample = (hsize_t)params.m_end_time;
                     hsize_t start_channel = (hsize_t)params.m_start_channel;
-                    hsize_t end_channel = (hsize_t)params.m_start_channel+1;
-                    hsize_t sample_block_inc = 30000;
-                    int16_t data_out[sample_block_inc];
+                    hsize_t end_channel = (hsize_t)params.m_end_channel;
+                    hsize_t sample_block_inc = (hsize_t)params.m_block_size;
+                    
                     hsize_t dimsm[2];
                     dimsm[0] = sample_block_inc;
-                    dimsm[1] = 1;
+                    dimsm[1] = end_channel-start_channel;
                     hsize_t offset[2];
                     offset[0] = start_sample;
                     offset[1] = start_channel;
@@ -105,37 +136,33 @@ public:
                     block[1] = 1;
                     hsize_t count[2]; // count
                     count[0] = sample_block_inc;
-                    count[1] = 1;
-                    H5::DataSpace memspace(2, dimsm, NULL);
-                    // unsigned int vec_size = end_sample - start_sample;
-                    // out_vec.resize(vec_size, 0);
-                    unsigned int prog_idx = 0;
+                    count[1] = end_channel-start_channel;
+
+                    hsize_t memdims = dimsm[0] * dimsm[1];
+                    std::vector<uint32_t> data_out(memdims);
+
+                    H5::DataSpace memspace(rank, dimsm, NULL);
+
                     for (int iSample = start_sample; iSample < end_sample; iSample+=sample_block_inc) {
                         offset[0] = iSample;
                         if ( (iSample + sample_block_inc) > end_sample ) {
                             hsize_t small_sample_block_inc = end_sample - iSample;
                             hsize_t small_count[2];
                             small_count[0] = small_sample_block_inc;
-                            small_count[1] = 1;
+                            small_count[1] = end_channel-start_channel;
                             hsize_t small_dimsm[2];
                             small_dimsm[0] = small_sample_block_inc;
-                            small_dimsm[1] = 1;
+                            small_dimsm[1] = end_channel-start_channel;
                             H5::DataSpace small_memspace(2, small_dimsm, NULL);
-                            int16_t small_data_chunk[small_sample_block_inc];
+                            std::vector<uint32_t> small_data_chunk(small_dimsm[0] * small_dimsm[1]);
                             dataspace.selectHyperslab(H5S_SELECT_SET, small_count, offset, stride, block);
-                            dataset.read(small_data_chunk, H5::PredType::NATIVE_INT16, small_memspace, dataspace);
-                            for (unsigned int i = 0; i < small_sample_block_inc; ++i) {
-                                out_vec.push_back(small_data_chunk[i]);
-                            }
-                            prog_idx += small_sample_block_inc;
+                            dataset.read(small_data_chunk.data(), params.dataType, small_memspace, dataspace);
+                            out_vec.insert(out_vec.end(), small_data_chunk.begin(), small_data_chunk.end());
                         }
                         else {
                             dataspace.selectHyperslab(H5S_SELECT_SET, count, offset, stride, block);
-                            dataset.read(data_out, H5::PredType::NATIVE_INT16, memspace, dataspace);
-                            for (unsigned int i = 0; i < sample_block_inc; ++i) {
-                                out_vec.push_back(data_out[i]);
-                            }
-                            prog_idx += sample_block_inc;
+                            dataset.read(data_out.data(), params.dataType, memspace, dataspace);
+                            out_vec.insert(out_vec.end(), data_out.begin(), data_out.end());
                         }
                     }
                 return out_vec;
@@ -143,6 +170,47 @@ public:
             }
         }
         return out_vec;
+    };
+
+    bool ExportPosData(const std::string & pathToDataSet, const std::string & outputFname) {
+         if ( m_hdf_file ) {
+            if ( m_hdf_file->nameExists(pathToDataSet) ) {
+                H5::DataSet dataset = m_hdf_file->openDataSet(pathToDataSet);
+                H5T_class_t type_class = dataset.getTypeClass();
+                if ( type_class == H5T_INTEGER ) {
+
+                    hsize_t dims_out[2];
+                    H5::DataSpace dataspace = dataset.getSpace();
+                    int ndims = dataspace.getSimpleExtentDims(dims_out, NULL);
+                    int nSamples = dims_out[0];
+                    int nChannels = dims_out[1];
+                    hsize_t start_sample = 0;
+                    hsize_t end_sample = (hsize_t)nSamples;
+                    hsize_t start_channel = 0;
+                    hsize_t end_channel = 2;
+                    hsize_t sample_block_inc = end_sample;
+                    int16_t data_out[sample_block_inc][end_channel-start_channel];
+                    hsize_t dimsm[2];
+                    dimsm[0] = sample_block_inc;
+                    dimsm[1] = end_channel-start_channel;
+                    hsize_t offset[2];
+                    offset[0] = start_sample;
+                    offset[1] = start_channel;
+                    hsize_t stride[2];
+                    stride[0] = 1;
+                    stride[1] = 1;
+                    hsize_t block[2];
+                    block[0] = 1;
+                    block[1] = 1;
+                    hsize_t count[2]; // count
+                    count[0] = sample_block_inc;
+                    count[1] = end_channel-start_channel;
+                    H5::DataSpace memspace(2, dimsm, NULL);
+                }
+            return true;
+            }
+        }
+        return false;
     };
 
     bool ExportData(const std::string & pathToDataSet, const std::string & outputFname, const ExportParams & params) {
@@ -164,7 +232,7 @@ public:
                     hsize_t end_sample = (hsize_t)params.m_end_time;
                     hsize_t start_channel = (hsize_t)params.m_start_channel;
                     hsize_t end_channel = (hsize_t)params.m_end_channel;
-                    hsize_t sample_block_inc = 30000;
+                    hsize_t sample_block_inc = (hsize_t)params.m_block_size;
                     /*
                     The buffer the data is read into - if sample_block_inc = 3e4 and
                     nChannels = 64 then this buffer is about 3Mb big
@@ -213,23 +281,25 @@ public:
                     count[0] = sample_block_inc;
                     count[1] = end_channel-start_channel;
                     H5::DataSpace memspace(2, dimsm, NULL);
+
                     // Progress bar for cli
-                    std::cout << "Extracting data from:\n" + m_filename + "..." << std::endl;;
-                    indicators::ProgressBar pbar{indicators::option::BarWidth{50},
-                                                indicators::option::Start{"["},
-                                                indicators::option::Fill{"■"},
-                                                indicators::option::Lead{"■"},
-                                                indicators::option::Remainder{"-"},
-                                                indicators::option::End{" ]"},
-                                                indicators::option::PostfixText{"Extracting data"},
-                                                indicators::option::MaxProgress{end_sample},
-                                                indicators::option::ForegroundColor{indicators::Color::cyan},
-                                                indicators::option::FontStyles{std::vector<indicators::FontStyle>{indicators::FontStyle::bold}}
+                    std::cout << "Exporting continuous data..." << std::endl;;
+                    ProgressBar pbar{option::BarWidth{50},
+                                    option::Start{"["},
+                                    option::Fill{"■"},
+                                    option::Lead{"■"},
+                                    option::Remainder{"-"},
+                                    option::End{" ]"},
+                                    option::PostfixText{"Exporting data"},
+                                    option::MaxProgress{end_sample},
+                                    option::ForegroundColor{Color::cyan},
+                                    option::FontStyles{std::vector<FontStyle>{FontStyle::bold}}
                     };
-                    indicators::show_console_cursor(false);
+                    
                     // Open the output file to write into
                     std::ofstream outfile(outputFname, std::ifstream::out);
                     auto pbar_val = 0;
+
                     for (int iSample = start_sample; iSample < end_sample; iSample+=sample_block_inc) {
                         offset[0] = iSample;
                         if ( (iSample + sample_block_inc) > end_sample ) {
@@ -243,20 +313,19 @@ public:
                             H5::DataSpace small_memspace(2, small_dimsm, NULL);
                             int16_t small_data_chunk[small_sample_block_inc][end_channel-start_channel];
                             dataspace.selectHyperslab(H5S_SELECT_SET, small_count, offset, stride, block);
-                            dataset.read(small_data_chunk, H5::PredType::NATIVE_INT16, small_memspace, dataspace);
+                            dataset.read(small_data_chunk, params.dataType, small_memspace, dataspace);
                             outfile.write(reinterpret_cast<char*>(&small_data_chunk), sizeof(small_data_chunk));
                             pbar_val = end_sample;
                         }
                         else {
                             dataspace.selectHyperslab(H5S_SELECT_SET, count, offset, stride, block);
-                            dataset.read(data_out, H5::PredType::NATIVE_INT16, memspace, dataspace);
+                            dataset.read(data_out, params.dataType, memspace, dataspace);
                             outfile.write(reinterpret_cast<char*>(&data_out), sizeof(data_out));
                             pbar_val = iSample;
                         }
                         pbar.set_progress(pbar_val);
-                        pbar.set_option(indicators::option::PostfixText{std::to_string(pbar_val)+ "/" + std::to_string(end_sample)});
+                        pbar.set_option(option::PostfixText{std::to_string(pbar_val)+ "/" + std::to_string(end_sample)});
                     }
-                    indicators::show_console_cursor(true);
                     outfile.close();
                 }
             }
