@@ -20,9 +20,9 @@ endif()
 # project headers
 include_directories(include  include/include/include/)
 
-link_directories(build /usr/include/hdf5/serial)
+link_directories(build /usr/include/hdf5/serial /usr/local/include)
 
 set( SOURCES src/main.cpp )
 
 add_executable( hdf2dat ${SOURCES} )
-target_link_libraries( hdf2dat ${HDF5_CXX_LIBRARIES} )
+target_link_libraries( hdf2dat ${HDF5_CXX_LIBRARIES}  /usr/local/lib/libcnpy.so)

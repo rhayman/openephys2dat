@@ -115,18 +115,14 @@ int main(int argc, char const *argv[])
         data.getDataSpaceDimensions(path2PosData+"/data", npossamps, nposchans);
         ExportParams posParams;
         posParams.m_start_channel = 0;
-        posParams.m_end_channel = 3;
+        posParams.m_end_channel = 2;
         posParams.m_start_time = 0;
         posParams.m_end_time = npossamps;
         posParams.m_block_size = npossamps;
-        posParams.dataType = H5::PredType::NATIVE_UINT32;
-        auto posdata = data.GetData(path2PosData+"/data", posParams);
-        std::cout << "posdata.size() + " << posdata.size() << std::endl;
-        for (size_t i = 0; i < 10; i++)
-        {
-            std::cout << posdata[i] << "\t";
-        }
-        std::cout << std::endl;
+        std::cout << "writing pos data " << std::endl;
+        auto output_pos_fname = this_file.substr(0,this_file.find_first_of('.')) + "_pos.npy";
+        data.ExportPosData(path2PosData, output_pos_fname, posParams);
+        std::cout << "pos exported" << std::endl;
 
         // output some data to the "continuous_data_info.txt" file
         outInfoStream << this_file << "\t" << path2data << "\t" << nsamps << std::endl;

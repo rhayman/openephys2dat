@@ -9,6 +9,7 @@
 #include <map>
 #include <fstream>
 #include <stdio.h>
+#include <cnpy.h>
 
 #include "../include/include/include/indicators/progress_bar.hpp"
 #include "../include/include/include/indicators/cursor_control.hpp"
@@ -78,38 +79,21 @@ public:
             }
         }
     };
-/*
-    void CheckTypeClass(const std::string path2DataSet) {
-        if ( m_hdf_file ) {
-            if ( m_hdf_file->nameExists(path2DataSet) ) {
-                H5::DataSet dataset = m_hdf_file->openDataSet(path2DataSet);
-                H5T_class_t type_class = dataset.getTypeClass();
-                if ( type_class == H5T_INTEGER ) {
 
-                    std::cout << " got int for pos data" << std::endl;
-                    hsize_t dims_out[2];
-                    H5::DataSpace dataspace = dataset.getSpace();
-                    int ndims = dataspace.getSimpleExtentDims(dims_out, NULL);
-                    int nSamples = dims_out[0];
-                    int nChannels = dims_out[1];
-                    std::cout << "nSAmples = " << nSamples << std::endl;
-                    std::cout << "nChannels = " << nChannels << std::endl;
-                }
-            
-            }
-        }
-    };
-*/
-
-    std::vector<uint32_t> GetData(const std::string & pathToDataSet, const ExportParams & params) {
-        std::vector<uint32_t> out_vec;
+    template<typename T>
+    std::vector<T> GetData(const std::string & pathToDataSet, const ExportParams & params) {
+        std::vector<T> out_vec;
         if ( m_hdf_file ) {
             if ( m_hdf_file->nameExists(pathToDataSet) ) {
                 H5::DataSet dataset = m_hdf_file->openDataSet(pathToDataSet);
                 H5T_class_t type_class = dataset.getTypeClass();
-                if ( type_class == H5T_INTEGER ) {
-                    H5::IntType inttype = dataset.getIntType();
-                    size_t precision = inttype.getPrecision();
+                // if ( type_class == H5T_FLOAT ) {
+                //     std::cout << "got float" << std::endl;
+                // }
+                // if ( type_class == H5T_INTEGER ) {
+                    // std::cout << "got int" << std::endl;
+                    // H5::IntType inttype = dataset.getIntType();
+                    // size_t precision = inttype.getPrecision();
                     H5::DataSpace dataspace = dataset.getSpace();
                     int rank = dataspace.getSimpleExtentNdims();
                     hsize_t dims_out[2];
@@ -139,7 +123,7 @@ public:
                     count[1] = end_channel-start_channel;
 
                     hsize_t memdims = dimsm[0] * dimsm[1];
-                    std::vector<uint32_t> data_out(memdims);
+                    std::vector<T> data_out(memdims);
 
                     H5::DataSpace memspace(rank, dimsm, NULL);
 
@@ -154,7 +138,7 @@ public:
                             small_dimsm[0] = small_sample_block_inc;
                             small_dimsm[1] = end_channel-start_channel;
                             H5::DataSpace small_memspace(2, small_dimsm, NULL);
-                            std::vector<uint32_t> small_data_chunk(small_dimsm[0] * small_dimsm[1]);
+                            std::vector<T> small_data_chunk(small_dimsm[0] * small_dimsm[1]);
                             dataspace.selectHyperslab(H5S_SELECT_SET, small_count, offset, stride, block);
                             dataset.read(small_data_chunk.data(), params.dataType, small_memspace, dataspace);
                             out_vec.insert(out_vec.end(), small_data_chunk.begin(), small_data_chunk.end());
@@ -166,51 +150,39 @@ public:
                         }
                     }
                 return out_vec;
-                }
+                // }
             }
         }
         return out_vec;
     };
 
-    bool ExportPosData(const std::string & pathToDataSet, const std::string & outputFname) {
-         if ( m_hdf_file ) {
-            if ( m_hdf_file->nameExists(pathToDataSet) ) {
-                H5::DataSet dataset = m_hdf_file->openDataSet(pathToDataSet);
-                H5T_class_t type_class = dataset.getTypeClass();
-                if ( type_class == H5T_INTEGER ) {
-
-                    hsize_t dims_out[2];
-                    H5::DataSpace dataspace = dataset.getSpace();
-                    int ndims = dataspace.getSimpleExtentDims(dims_out, NULL);
-                    int nSamples = dims_out[0];
-                    int nChannels = dims_out[1];
-                    hsize_t start_sample = 0;
-                    hsize_t end_sample = (hsize_t)nSamples;
-                    hsize_t start_channel = 0;
-                    hsize_t end_channel = 2;
-                    hsize_t sample_block_inc = end_sample;
-                    int16_t data_out[sample_block_inc][end_channel-start_channel];
-                    hsize_t dimsm[2];
-                    dimsm[0] = sample_block_inc;
-                    dimsm[1] = end_channel-start_channel;
-                    hsize_t offset[2];
-                    offset[0] = start_sample;
-                    offset[1] = start_channel;
-                    hsize_t stride[2];
-                    stride[0] = 1;
-                    stride[1] = 1;
-                    hsize_t block[2];
-                    block[0] = 1;
-                    block[1] = 1;
-                    hsize_t count[2]; // count
-                    count[0] = sample_block_inc;
-                    count[1] = end_channel-start_channel;
-                    H5::DataSpace memspace(2, dimsm, NULL);
-                }
-            return true;
+    bool ExportPosData(const std::string & pathToDataSet, const std::string & outputFname, ExportParams & params) {
+        // pathToDataSet - only points to the H5::Group that contains the pos data so it needs to be 
+        // filled out to get the actual H5::Dataset(s)
+        // make sure params is correct
+        params.dataType = H5::PredType::NATIVE_UINT32;
+        auto path2PosData = pathToDataSet + "/data";
+        auto xydata = GetData<int32_t>(path2PosData, params);
+        auto path2PosTimeStamps = pathToDataSet + "/timestamps";
+        // DataType changes for timestamps to float
+        params.dataType = H5::PredType::NATIVE_FLOAT;
+        params.m_start_channel = 0;
+        params.m_end_channel = 1;
+        params.m_end_time = xydata.size() / 2;
+        auto ts = GetData<float>(path2PosTimeStamps, params);
+        // Intercalate the two vectors
+        int count = 0;
+        std::vector<_Float64> result;
+        for (size_t i = 1; i < xydata.size()+1; i++)
+        {
+            result.push_back(xydata[i-1]);
+            if ( i % 2 == 0 ) {
+                result.push_back(ts[count]);
+                ++count;
             }
         }
-        return false;
+        cnpy::npy_save(outputFname, &result[0], {ts.size(), 3}, "w");
+        return true;
     };
 
     bool ExportData(const std::string & pathToDataSet, const std::string & outputFname, const ExportParams & params) {
