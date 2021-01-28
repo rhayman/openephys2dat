@@ -14,7 +14,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/bin )
 set ( HDF5_USE_STATIC_LIBRARIES OFF )
 find_package( HDF5 REQUIRED CXX )
 if ( HDF5_FOUND )
-	include_directories( ${HDF5_CXX_INCLUDE_DIRS} )
+	include_directories( ${HDF5_CXX_INCLUDE_DIRS} ${HDF5_C_INCLUDE_DIRS})
 endif()
 
 # project headers
@@ -26,7 +26,8 @@ set( SOURCES src/main.cpp )
 
 add_executable( hdf2dat ${SOURCES} )
 target_link_libraries( hdf2dat 
-						${HDF5_CXX_LIBRARIES}  
+						${HDF5_CXX_LIBRARIES}
+						${HDF5_C_LIBRARIES}  
 						/usr/local/lib/libcnpy.so
 						/usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5_cpp.so
 						/usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5.so)
